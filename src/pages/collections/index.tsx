@@ -137,13 +137,22 @@ const CollectionForm: React.FC = () => {
 	useEffect(() => {
 		async function getCollection() {
 			try {
-				const { data: collection } = await axios.post(
-					"/api/collection/validate",
-					{
+				const response = await fetch("/api/collection/validate", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
 						collectionSymbol: formState.collectionSymbol,
 						apiKey,
-					}
-				);
+					}),
+				});
+
+				if (!response.ok) {
+					throw new Error("Network response was not ok");
+				}
+
+				const collection = await response.json();
 
 				setCollectionDetails({
 					symbol: collection.symbol,
@@ -156,7 +165,7 @@ const CollectionForm: React.FC = () => {
 					maxBid: +collection.floorPrice / 1e8,
 				}));
 			} catch (error) {
-				console.log(error);
+				console.error(error);
 			}
 		}
 
@@ -168,12 +177,18 @@ const CollectionForm: React.FC = () => {
 	useEffect(() => {
 		async function validateAddress() {
 			try {
-				const { data: isOrdinalAddress } = await axios.get<boolean>(
+				const response = await fetch(
 					`/api/account/validate?address=${formState.tokenReceiveAddress}`
 				);
+
+				if (!response.ok) {
+					throw new Error("Network response was not ok");
+				}
+				const isOrdinalAddress = await response.json();
+
 				setIsOrdinalAddress(isOrdinalAddress);
 			} catch (error) {
-				console.log(error);
+				console.error(error);
 			}
 		}
 

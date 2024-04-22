@@ -23,26 +23,40 @@ const Accounts = () => {
 	async function createWallet() {
 		try {
 			setIsLoading(true);
-			const { data } = await axios.get<Wallet>("/api/account");
 
-			const { privateKey } = data;
+			const accountResponse = await fetch("/api/account");
 
-			const { data: wallet } = await axios.post<IValidateWallet>(
-				"/api/account/validate",
-				{
-					privateKey,
-				}
-			);
-			const { isBitcoin, address } = wallet;
+			if (!accountResponse.ok) {
+				throw new Error("Network response for fetching account was not ok");
+			}
+
+			const accountData = await accountResponse.json();
+			const { privateKey } = accountData;
+
+			const validateResponse = await fetch("/api/account/validate", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ privateKey }),
+			});
+
+			if (!validateResponse.ok) {
+				throw new Error("Network response for validating wallet was not ok");
+			}
+
+			const walletData = await validateResponse.json();
+			const { isBitcoin, address } = walletData;
 
 			if (isBitcoin) {
 				addWallet(privateKey, address);
 			}
-			setCreatedWallets([wallet]);
+
+			setCreatedWallets([walletData]);
 			setShowDownloadPrompt(true);
 		} catch (error) {
 			toast.error("Failed to create wallet. Please try again.");
-			console.log(error);
+			console.error(error);
 		} finally {
 			setIsLoading(false);
 		}
@@ -65,12 +79,19 @@ const Accounts = () => {
 	async function handlePrivateKeySubmit() {
 		try {
 			if (privateKey) {
-				const { data: wallet } = await axios.post<IValidateWallet>(
-					"/api/account/validate",
-					{
-						privateKey,
-					}
-				);
+				const response = await fetch("/api/account/validate", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({ privateKey }),
+				});
+
+				if (!response.ok) {
+					throw new Error("Network response was not ok");
+				}
+
+				const wallet = await response.json();
 				const { isBitcoin, address } = wallet;
 
 				if (isBitcoin) {
@@ -79,7 +100,7 @@ const Accounts = () => {
 			}
 		} catch (error) {
 			toast.error("Failed to add wallet. Please try again.");
-			console.log(error);
+			console.error(error);
 		} finally {
 			setAddPrivatekey(false);
 			setPrivateKey("");
@@ -93,12 +114,19 @@ const Accounts = () => {
 				const reader = new FileReader();
 				reader.onload = async (e) => {
 					const content = e.target?.result as string;
-					const { data: wallet } = await axios.post<IValidateWallet>(
-						"/api/account/validate",
-						{
-							privateKey: content,
-						}
-					);
+					const response = await fetch("/api/account/validate", {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({ privateKey: content }),
+					});
+
+					if (!response.ok) {
+						throw new Error("Network response was not ok");
+					}
+
+					const wallet = await response.json();
 					const { isBitcoin, address } = wallet;
 
 					if (isBitcoin) {
@@ -110,7 +138,7 @@ const Accounts = () => {
 				console.log("Invalid file type. Please select a TXT file.");
 			}
 		} catch (error) {
-			console.log(error);
+			console.error(error);
 		}
 	};
 
