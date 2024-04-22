@@ -1,14 +1,21 @@
-import { validateCollection } from "@/apis/collections";
+import CheckIcon from "@/assets/icons/CheckIcon";
+import ChevronDownIcon from "@/assets/icons/ChevronDownIcon";
 import PlusIcon from "@/assets/icons/PlusIcon";
 import DualRangeSlider from "@/components/DualRangeSlider";
+import { useAccountState } from "@/store/account.store";
 import { useCollectionsState } from "@/store/collections.store";
 import { useSettingsState } from "@/store/settings.store";
+import axios from "axios";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 
 const CollectionForm: React.FC = () => {
 	const [isOpen, setIsOpen] = useState(false);
+	const [openDropDown, setOpenDropdown] = useState(false);
 	const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
+	const { wallets } = useAccountState();
+
+	const [selectedWallet, setSelectedWallet] = useState("");
 
 	const [formState, setFormState] = useState<CollectionData>({
 		collectionSymbol: "",
@@ -114,9 +121,18 @@ const CollectionForm: React.FC = () => {
 	useEffect(() => {
 		async function getCollection() {
 			try {
-				const collection = await validateCollection(formState.collectionSymbol);
+				const { data: collection } = await axios.post(
+					"/api/collection/validate",
+					{
+						collectionSymbol: formState.collectionSymbol,
+						apiKey,
+					}
+				);
 
-				console.log({ collection });
+				setCollectionDetails({
+					symbol: collection.symbol,
+					floorPrice: +collection.floorPrice,
+				});
 			} catch (error) {
 				console.log(error);
 			}
@@ -127,7 +143,14 @@ const CollectionForm: React.FC = () => {
 		}
 	}, [apiKey, formState.collectionSymbol]);
 
-	console.log({ apiKey, collectionSymbol: formState.collectionSymbol });
+	const toggleDropdown = () => {
+		setOpenDropdown(!openDropDown);
+	};
+
+	const handleWalletChange = (privateKey: string) => {
+		setSelectedWallet(privateKey);
+		setOpenDropdown(false);
+	};
 
 	return (
 		<div className='relative'>
@@ -301,8 +324,11 @@ const CollectionForm: React.FC = () => {
 							<div>
 								<label
 									htmlFor='collection_symbol'
-									className='block mb-2 text-sm font-medium text-white'>
+									className='mb-2 text-sm font-medium text-white flex gap-2 items-center'>
 									COLLECTION SYMBOL
+									{collectionDetails.symbol && collectionDetails.floorPrice ? (
+										<CheckIcon />
+									) : null}
 								</label>
 								<input
 									type='text'
@@ -318,7 +344,7 @@ const CollectionForm: React.FC = () => {
 								<label
 									htmlFor='token_receive_address'
 									className='block mb-2 text-sm font-medium text-white'>
-									TOKEN RECEIVE ADDRESS
+									TOKEN RECEIVE ADDRESS (ordinal address)
 								</label>
 								<input
 									type='text'
@@ -329,24 +355,61 @@ const CollectionForm: React.FC = () => {
 									onChange={(e) => handleInputChange(e, "tokenReceiveAddress")}
 								/>
 							</div>
-
-							<div className='mt-6'>
+							<div className='mt-6 relative'>
 								<label
-									htmlFor='funding_wallet_wif'
+									htmlFor='funding_wif'
 									className='block mb-2 text-sm font-medium text-white'>
-									FUNDING WALLET WIF
+									FUNDING WIF
 								</label>
-								<input
-									type='text'
-									id='funding_wallet_wif'
-									className='p-[14px] bg-transparent border border-[#343B4F] w-full rounded text-white'
-									placeholder=''
-									value={formState.fundingWalletWIF}
-									onChange={(e) => handleInputChange(e, "fundingWalletWIF")}
-								/>
+								<div className='relative'>
+									<button
+										type='button'
+										className='p-[14px] bg-transparent border border-[#343B4F] w-full rounded text-white flex items-center justify-between'
+										onClick={toggleDropdown}>
+										<span
+											className={
+												selectedWallet ? "text-white" : "text-gray-400"
+											}>
+											{selectedWallet
+												? wallets.find(
+														(wallet) => wallet.privateKey === selectedWallet
+												  )?.privateKey
+												: "Select a wallet"}
+										</span>
+										<ChevronDownIcon
+											className={`w-5 h-5 ml-2 transition-transform ${
+												openDropDown ? "transform rotate-180" : ""
+											}`}
+										/>
+									</button>
+									{openDropDown && (
+										<div className='absolute z-10 w-full bg-[#1A2342] border border-[#343B4F] rounded shadow-lg mt-1'>
+											{wallets.map((wallet, index) => (
+												<div
+													key={index}
+													className={`p-[14px] text-white cursor-pointer hover:bg-[#343B4F] ${
+														selectedWallet === wallet.privateKey
+															? "bg-[#343B4F]"
+															: ""
+													}`}
+													onClick={() => handleWalletChange(wallet.privateKey)}>
+													{wallet.label}
+												</div>
+											))}
+										</div>
+									)}
+								</div>
+								<div className='mt-2'>
+									<Link href='/accounts' className='text-white underline'>
+										Add a new key
+									</Link>
+								</div>
 							</div>
 
-							<DualRangeSlider setFormState={setFormState} />
+							<DualRangeSlider
+								setFormState={setFormState}
+								floorPrice={collectionDetails.floorPrice}
+							/>
 
 							<div className='mt-6 flex space-x-4'>
 								<div>

@@ -3,6 +3,7 @@ import { Range } from "react-range";
 
 interface Props {
 	setFormState: React.Dispatch<React.SetStateAction<CollectionData>>;
+	floorPrice: number;
 }
 
 export interface CollectionData {
@@ -20,7 +21,7 @@ export interface CollectionData {
 	counterbidLoop?: number;
 }
 
-const DualRangeSlider: React.FC<Props> = ({ setFormState }) => {
+const DualRangeSlider: React.FC<Props> = ({ setFormState, floorPrice }) => {
 	const [values, setValues] = useState([50, 75]);
 
 	const handleChange = (newValues: number[]) => {
@@ -43,7 +44,7 @@ const DualRangeSlider: React.FC<Props> = ({ setFormState }) => {
 			<label
 				htmlFor='floor_bid_range'
 				className='block mb-2 text-sm font-medium text-white'>
-				FLOOR BID RANGE (%)
+				{floorPrice ? `FLOOR BID RANGE (${floorPrice})` : "FLOOR BID RANGE"}
 			</label>
 			<div className='relative'>
 				<Range
@@ -87,8 +88,10 @@ const DualRangeSlider: React.FC<Props> = ({ setFormState }) => {
 				/>
 			</div>
 			<div className='flex justify-between text-sm text-white mt-2'>
-				<span>{values[0]}%</span>
-				<span>{values[1]}%</span>
+				{values[0]}% {floorPrice ? `(${(values[0] * floorPrice) / 100})` : ""}
+				<span>
+					{values[1]}% {floorPrice ? `(${(values[1] * floorPrice) / 100})` : ""}
+				</span>
 			</div>
 		</div>
 	);
