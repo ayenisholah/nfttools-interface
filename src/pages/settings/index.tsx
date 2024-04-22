@@ -1,12 +1,16 @@
+import ChevronDownIcon from "@/assets/icons/ChevronDownIcon";
 import InvisibleIcon from "@/assets/icons/InvisibleIcon";
 import VisibleIcon from "@/assets/icons/VisibleIcon";
 import Toast from "@/components/Toast";
+import { useAccountState } from "@/store/account.store";
 import { useSettingsState } from "@/store/settings.store";
+import Link from "next/link";
 import React, { useEffect, useState } from "react";
 
 const Settings: React.FC = () => {
 	const [showPassword, setShowPassword] = useState(false);
 	const [showToast, setShowToast] = useState(false);
+	const [isOpen, setIsOpen] = useState(false);
 
 	const {
 		apiKey,
@@ -19,8 +23,6 @@ const Settings: React.FC = () => {
 		defaultCounterLoopTime,
 		updateSettings,
 	} = useSettingsState();
-
-	console.log({ rateLimit });
 
 	const [formState, setFormState] = useState<SettingsState>({
 		apiKey: apiKey,
@@ -91,6 +93,19 @@ const Settings: React.FC = () => {
 		setShowToast(true);
 	}
 
+	const { wallets } = useAccountState();
+	const [selectedWallet, setSelectedWallet] = useState("");
+
+	const handleWalletChange = (privateKey: string) => {
+		updateSettings({ fundingWif: privateKey });
+		setSelectedWallet(privateKey);
+		setIsOpen(false);
+	};
+
+	const toggleDropdown = () => {
+		setIsOpen(!isOpen);
+	};
+
 	return (
 		<div className='py-[30px] px-[40px]'>
 			{showToast && (
@@ -114,7 +129,7 @@ const Settings: React.FC = () => {
 				Default bidding configuration
 			</p>
 
-			<div className='mt-6 w-[600px] border border-[#343B4F] rounded-xl p-8 bg-[#0b1739]'>
+			<div className='mt-6 w-[768px] border border-[#343B4F] rounded-xl p-8 bg-[#0b1739]'>
 				<div>
 					<label
 						htmlFor='api_key'
@@ -131,27 +146,52 @@ const Settings: React.FC = () => {
 						required
 					/>
 				</div>
+
+				{/* select wallets */}
 				<div className='mt-6 relative'>
 					<label
 						htmlFor='funding_wif'
 						className='block mb-2 text-sm font-medium text-white'>
 						FUNDING WIF
 					</label>
-					<input
-						type={showPassword ? "text" : "password"}
-						id='funding_wif'
-						className='p-[14px] bg-transparent border border-[#343B4F] w-full rounded text-white pr-10'
-						placeholder=''
-						value={formState.fundingWif}
-						onChange={(e) => handleInputChange(e, "fundingWif")}
-						required
-					/>
-					<button
-						type='button'
-						className='absolute right-5 top-[42px] text-white focus:outline-none'
-						onClick={togglePasswordVisibility}>
-						{showPassword ? <InvisibleIcon /> : <VisibleIcon />}
-					</button>
+					<div className='relative'>
+						<button
+							type='button'
+							className='p-[14px] bg-transparent border border-[#343B4F] w-full rounded text-white flex items-center justify-between'
+							onClick={toggleDropdown}>
+							<span className={selectedWallet ? "text-white" : "text-gray-400"}>
+								{selectedWallet
+									? wallets.find(
+											(wallet) => wallet.privateKey === selectedWallet
+									  )?.privateKey
+									: "Select a wallet"}
+							</span>
+							<ChevronDownIcon
+								className={`w-5 h-5 ml-2 transition-transform ${
+									isOpen ? "transform rotate-180" : ""
+								}`}
+							/>
+						</button>
+						{isOpen && (
+							<div className='absolute z-10 w-full bg-[#1A2342] border border-[#343B4F] rounded shadow-lg mt-1'>
+								{wallets.map((wallet, index) => (
+									<div
+										key={index}
+										className={`p-[14px] text-white cursor-pointer hover:bg-[#343B4F] ${
+											selectedWallet === wallet.privateKey ? "bg-[#343B4F]" : ""
+										}`}
+										onClick={() => handleWalletChange(wallet.privateKey)}>
+										{wallet.label}
+									</div>
+								))}
+							</div>
+						)}
+					</div>
+					<div className='mt-2'>
+						<Link href='/accounts' className='text-white underline'>
+							Add a new key
+						</Link>
+					</div>
 				</div>
 				<div className='mt-6'>
 					<label
@@ -169,92 +209,102 @@ const Settings: React.FC = () => {
 						required
 					/>
 				</div>
-				<div className='mt-6'>
-					<label
-						htmlFor='rate_limit'
-						className='block mb-2 text-sm font-medium text-white'>
-						RATE LIMIT
-					</label>
-					<input
-						type='number'
-						id='rate_limit'
-						className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
-						placeholder=''
-						inputMode='numeric'
-						value={formState.rateLimit}
-						onChange={(e) => handleNumberInputChange(e, "rateLimit")}
-						required
-					/>
+
+				{/* timers */}
+				<div className='mt-6 flex space-x-4'>
+					<div>
+						<label
+							htmlFor='default_loop_time'
+							className='block mb-2 text-sm font-medium text-white'>
+							DEFAULT LOOP TIME (seconds)
+						</label>
+						<input
+							type='number'
+							id='default_loop_time'
+							className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+							placeholder=''
+							inputMode='numeric'
+							value={formState.defaultLoopTime}
+							onChange={(e) => handleNumberInputChange(e, "defaultLoopTime")}
+							required
+						/>
+					</div>
+					<div>
+						<label
+							htmlFor='default_counter_loop_time'
+							className='block mb-2 text-sm font-medium text-white'>
+							DEFAULT COUNTER LOOP TIME (seconds)
+						</label>
+						<input
+							type='number'
+							id='default_counter_loop_time'
+							className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+							placeholder=''
+							inputMode='numeric'
+							value={formState.defaultCounterLoopTime}
+							onChange={(e) =>
+								handleNumberInputChange(e, "defaultCounterLoopTime")
+							}
+							required
+						/>
+					</div>
 				</div>
-				<div className='mt-6'>
-					<label
-						htmlFor='bid_expiration'
-						className='block mb-2 text-sm font-medium text-white'>
-						BID EXPIRATION (minutes)
-					</label>
-					<input
-						type='number'
-						id='bid_expiration'
-						className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
-						placeholder=''
-						inputMode='numeric'
-						value={formState.bidExpiration}
-						onChange={(e) => handleNumberInputChange(e, "bidExpiration")}
-						required
-					/>
-				</div>
-				<div className='mt-6'>
-					<label
-						htmlFor='default_outbid_margin'
-						className='block mb-2 text-sm font-medium text-white'>
-						DEFAULT OUTBID MARGIN (BTC)
-					</label>
-					<input
-						type='number'
-						id='default_outbid_margin'
-						className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
-						placeholder=''
-						inputMode='numeric'
-						value={formState.defaultOutbidMargin}
-						onChange={(e) => handleNumberInputChange(e, "defaultOutbidMargin")}
-						required
-					/>
-				</div>
-				<div className='mt-6'>
-					<label
-						htmlFor='default_loop_time'
-						className='block mb-2 text-sm font-medium text-white'>
-						DEFAULT LOOP TIME (seconds)
-					</label>
-					<input
-						type='number'
-						id='default_loop_time'
-						className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
-						placeholder=''
-						inputMode='numeric'
-						value={formState.defaultLoopTime}
-						onChange={(e) => handleNumberInputChange(e, "defaultLoopTime")}
-						required
-					/>
-				</div>
-				<div className='mt-6'>
-					<label
-						htmlFor='default_counter_loop_time'
-						className='block mb-2 text-sm font-medium text-white'>
-						DEFAULT COUNTER LOOP TIME (seconds)
-					</label>
-					<input
-						type='number'
-						id='default_counter_loop_time'
-						className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
-						placeholder=''
-						inputMode='numeric'
-						value={formState.defaultCounterLoopTime}
-						onChange={(e) =>
-							handleNumberInputChange(e, "defaultCounterLoopTime")
-						}
-						required
-					/>
+
+				{/* others */}
+				<div className='mt-6 flex space-x-4'>
+					<div>
+						<label
+							htmlFor='rate_limit'
+							className='block mb-2 text-sm font-medium text-white'>
+							RATE LIMIT
+						</label>
+						<input
+							type='number'
+							id='rate_limit'
+							className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+							placeholder=''
+							inputMode='numeric'
+							value={formState.rateLimit}
+							onChange={(e) => handleNumberInputChange(e, "rateLimit")}
+							required
+						/>
+					</div>
+					<div>
+						<label
+							htmlFor='bid_expiration'
+							className='block mb-2 text-sm font-medium text-white'>
+							BID EXPIRATION (minutes)
+						</label>
+						<input
+							type='number'
+							id='bid_expiration'
+							className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+							placeholder=''
+							inputMode='numeric'
+							value={formState.bidExpiration}
+							onChange={(e) => handleNumberInputChange(e, "bidExpiration")}
+							required
+						/>
+					</div>
+					<div>
+						<label
+							htmlFor='default_outbid_margin'
+							className='block mb-2 text-sm font-medium text-white'>
+							DEFAULT OUTBID MARGIN (BTC)
+						</label>
+						<input
+							type='number'
+							id='default_outbid_margin'
+							className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+							placeholder=''
+							inputMode='numeric'
+							value={formState.defaultOutbidMargin}
+							onChange={(e) =>
+								handleNumberInputChange(e, "defaultOutbidMargin")
+							}
+							required
+						/>
+					</div>
 				</div>
 
 				<div className='flex justify-end mt-6'>
