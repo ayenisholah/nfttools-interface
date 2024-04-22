@@ -8,11 +8,13 @@ import { useSettingsState } from "@/store/settings.store";
 import axios from "axios";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 
 const CollectionForm: React.FC = () => {
 	const [isOpen, setIsOpen] = useState(false);
 	const [openDropDown, setOpenDropdown] = useState(false);
 	const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
+	const [isOrdinalAddress, setIsOrdinalAddress] = useState(false);
 	const { wallets } = useAccountState();
 
 	const [selectedWallet, setSelectedWallet] = useState("");
@@ -23,13 +25,13 @@ const CollectionForm: React.FC = () => {
 		maxBid: 0,
 		minFloorBid: 50,
 		maxFloorBid: 75,
-		outBidMargin: 0,
-		bidCount: 0,
-		duration: 0,
+		outBidMargin: 1e-6,
+		bidCount: 1,
+		duration: 10,
 		fundingWalletWIF: "",
 		tokenReceiveAddress: "",
-		scheduledLoop: 0,
-		counterbidLoop: 0,
+		scheduledLoop: 600,
+		counterbidLoop: 600,
 	});
 
 	const handleSelectAllChange = (
@@ -89,22 +91,36 @@ const CollectionForm: React.FC = () => {
 	};
 
 	const handleAddCollection = () => {
+		if (!collectionDetails.symbol || !collectionDetails.floorPrice) {
+			toast.error("Please enter a valid collection symbol.");
+			return;
+		}
+
+		if (!isOrdinalAddress) {
+			toast.error("Please enter a valid ordinal address.");
+			return;
+		}
 		addCollection(formState);
 		setFormState({
 			collectionSymbol: "",
 			minBid: 0,
 			maxBid: 0,
-			minFloorBid: 0,
-			maxFloorBid: 0,
-			outBidMargin: 0,
-			bidCount: 0,
-			duration: 0,
+			minFloorBid: 50,
+			maxFloorBid: 75,
+			outBidMargin: 1e-6,
+			bidCount: 1,
+			duration: 10,
 			fundingWalletWIF: "",
 			tokenReceiveAddress: "",
-			scheduledLoop: 0,
-			counterbidLoop: 0,
+			scheduledLoop: 600,
+			counterbidLoop: 600,
 		});
 
+		setIsOrdinalAddress(false);
+		setCollectionDetails({
+			symbol: "",
+			floorPrice: 0,
+		});
 		setIsOpen(false);
 	};
 
@@ -131,8 +147,14 @@ const CollectionForm: React.FC = () => {
 
 				setCollectionDetails({
 					symbol: collection.symbol,
-					floorPrice: +collection.floorPrice,
+					floorPrice: Number((+collection.floorPrice / 1e8).toFixed(9)),
 				});
+
+				setFormState((prev) => ({
+					...prev,
+					minBid: (+collection.floorPrice / 1e8) * 0.5,
+					maxBid: +collection.floorPrice / 1e8,
+				}));
 			} catch (error) {
 				console.log(error);
 			}
@@ -143,12 +165,30 @@ const CollectionForm: React.FC = () => {
 		}
 	}, [apiKey, formState.collectionSymbol]);
 
+	useEffect(() => {
+		async function validateAddress() {
+			try {
+				const { data: isOrdinalAddress } = await axios.get<boolean>(
+					`/api/account/validate?address=${formState.tokenReceiveAddress}`
+				);
+				setIsOrdinalAddress(isOrdinalAddress);
+			} catch (error) {
+				console.log(error);
+			}
+		}
+
+		if (formState.tokenReceiveAddress) {
+			validateAddress();
+		}
+	}, [formState.tokenReceiveAddress]);
+
 	const toggleDropdown = () => {
 		setOpenDropdown(!openDropDown);
 	};
 
 	const handleWalletChange = (privateKey: string) => {
 		setSelectedWallet(privateKey);
+		setFormState((prev) => ({ ...prev, fundingWalletWIF: privateKey }));
 		setOpenDropdown(false);
 	};
 
@@ -278,11 +318,13 @@ const CollectionForm: React.FC = () => {
 										<td className='px-6 py-5'>{collection.bidCount}</td>
 										<td className='px-6 py-5'>{collection.duration}</td>
 										<td className='flex items-center px-6 py-5'>
-											<a
-												href='#'
-												className='font-medium text-blue-600 dark:text-blue-500 hover:underline'>
+											<button
+												className='font-medium text-blue-600 dark:text-blue-500 hover:underline'
+												onClick={() => {
+													setIsOpen(true);
+												}}>
 												Edit
-											</a>
+											</button>
 											<button
 												onClick={() => handleRemoveCollection(index)}
 												className='font-medium text-red-600 dark:text-red-500 hover:underline ms-3'>
@@ -343,8 +385,9 @@ const CollectionForm: React.FC = () => {
 							<div className='mt-6'>
 								<label
 									htmlFor='token_receive_address'
-									className='block mb-2 text-sm font-medium text-white'>
+									className='mb-2 text-sm font-medium text-white flex gap-2'>
 									TOKEN RECEIVE ADDRESS (ordinal address)
+									{isOrdinalAddress ? <CheckIcon /> : null}
 								</label>
 								<input
 									type='text'
@@ -354,6 +397,12 @@ const CollectionForm: React.FC = () => {
 									value={formState.tokenReceiveAddress}
 									onChange={(e) => handleInputChange(e, "tokenReceiveAddress")}
 								/>
+
+								{formState.tokenReceiveAddress && !isOrdinalAddress ? (
+									<span className='bg-yellow-100 text-yellow-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-yellow-900 dark:text-yellow-300'>
+										⚠️ This address is not a valid ordinal address
+									</span>
+								) : null}
 							</div>
 							<div className='mt-6 relative'>
 								<label
@@ -422,7 +471,11 @@ const CollectionForm: React.FC = () => {
 										type='number'
 										id='min_bid'
 										className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
-										placeholder=''
+										placeholder={
+											collectionDetails.floorPrice
+												? (collectionDetails.floorPrice * 0.5).toString()
+												: ""
+										}
 										inputMode='numeric'
 										value={formState.minBid}
 										onChange={(e) => handleNumberInputChange(e, "minBid")}
@@ -453,7 +506,7 @@ const CollectionForm: React.FC = () => {
 									<label
 										htmlFor='scheduled_loop'
 										className='block mb-2 text-sm font-medium text-white'>
-										SCHEDULED LOOP
+										SCHEDULED LOOP (seconds)
 									</label>
 									<input
 										type='number'
@@ -471,7 +524,7 @@ const CollectionForm: React.FC = () => {
 									<label
 										htmlFor='counterbid_loop'
 										className='block mb-2 text-sm font-medium text-white'>
-										COUNTERBID LOOP
+										COUNTERBID LOOP (seconds)
 									</label>
 									<input
 										type='number'
@@ -542,8 +595,19 @@ const CollectionForm: React.FC = () => {
 
 							<div className='flex justify-end mt-6'>
 								<button
-									className='bg-[#CB3CFF] py-[14px] w-[180px] font-semibold text-white text-sm rounded'
-									onClick={handleAddCollection}>
+									className={`py-[14px] w-[180px] font-semibold text-sm rounded ${
+										!collectionDetails.symbol ||
+										!collectionDetails.floorPrice ||
+										!isOrdinalAddress
+											? "bg-gray-400 cursor-not-allowed"
+											: "bg-[#CB3CFF] text-white"
+									}`}
+									onClick={handleAddCollection}
+									disabled={
+										!collectionDetails.symbol ||
+										!collectionDetails.floorPrice ||
+										!isOrdinalAddress
+									}>
 									ADD
 								</button>
 							</div>

@@ -88,9 +88,11 @@ const DualRangeSlider: React.FC<Props> = ({ setFormState, floorPrice }) => {
 				/>
 			</div>
 			<div className='flex justify-between text-sm text-white mt-2'>
-				{values[0]}% {floorPrice ? `(${(values[0] * floorPrice) / 100})` : ""}
+				{values[0]}%{" "}
+				{floorPrice ? `(${((values[0] * floorPrice) / 100).toFixed(8)})` : ""}
 				<span>
-					{values[1]}% {floorPrice ? `(${(values[1] * floorPrice) / 100})` : ""}
+					{values[1]}%{" "}
+					{floorPrice ? `(${((values[1] * floorPrice) / 100).toFixed(8)})` : ""}
 				</span>
 			</div>
 		</div>

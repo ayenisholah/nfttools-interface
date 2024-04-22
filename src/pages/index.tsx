@@ -6,6 +6,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export default function Home() {
 	const { collections } = useCollectionsState();
+	console.log({ collections });
 
 	return (
 		<div className='py-[30px] px-[40px]'>

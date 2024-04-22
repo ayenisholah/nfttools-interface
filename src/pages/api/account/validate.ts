@@ -24,22 +24,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       res.status(200).json(wallet);
     } else if (req.method === "GET") {
+      const { address } = req.query as unknown as RequestQuery
+      const valid = isOrdinalAddress(address)
+      console.log({ address, valid });
 
-      try {
-        const { address } = req.query as unknown as RequestQuery
-        console.log({ address });
-        const decodedAddress = !!bitcoin.address.fromBech32(address);
-        console.log({ decodedAddress });
-        res.status(200).json(decodedAddress);
-
-      } catch (error) {
-        console.log({ isBitcoin: false });
-        res.status(200).json({ isBitcoin: false })
-      }
-
-    }
-    else {
-      res.status(405).json({ message: 'Method not allowed' });
+      res.status(200).json(valid)
     }
 
   } catch (error) {
@@ -53,4 +42,20 @@ interface RequestBody {
 
 interface RequestQuery {
   address: string
+}
+
+
+function isOrdinalAddress(address: string) {
+  try {
+    const decodedAddress = bitcoin.address.fromBech32(address);
+
+    if (decodedAddress.data.length === 32) {
+      return true;
+    } else if (decodedAddress.data.length === 20) {
+      return false;
+    }
+  } catch (error) {
+    return false;
+  }
+  return false;
 }
