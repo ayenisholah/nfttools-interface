@@ -18,7 +18,7 @@ function createP2PKHwallet(): Wallet {
 }
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method === 'GET') {
+  if (req.method === "GET") {
     const wallet = createP2PKHwallet();
     res.status(200).json(wallet);
   } else {
