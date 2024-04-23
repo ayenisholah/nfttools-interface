@@ -1,8 +1,8 @@
 import axiosInstance, { limiter } from "@/axios";
 import * as bitcoin from "bitcoinjs-lib"
-import { ECPairInterface, ECPairFactory, ECPairAPI, TinySecp256k1Interface } from 'ecpair';
+import { ECPairInterface, ECPairFactory, ECPairAPI } from 'ecpair';
+import tinysecp from '@bitcoinerlab/secp256k1'
 
-const tinysecp: TinySecp256k1Interface = require('tiny-secp256k1');
 const ECPair: ECPairAPI = ECPairFactory(tinysecp);
 const network = bitcoin.networks.bitcoin;
 

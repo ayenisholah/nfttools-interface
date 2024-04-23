@@ -1,11 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import * as bitcoin from 'bitcoinjs-lib';
-import { ECPairFactory, ECPairAPI, TinySecp256k1Interface } from 'ecpair';
 import axiosInstance, { limiter } from '@/axios';
-
-const tinysecp: TinySecp256k1Interface = require('tiny-secp256k1');
-const ECPair: ECPairAPI = ECPairFactory(tinysecp);
-const network = bitcoin.networks.bitcoin;
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

@@ -2,13 +2,14 @@
 import * as bitcoin from "bitcoinjs-lib"
 import type { NextApiRequest, NextApiResponse } from 'next';
 import PQueue from "p-queue"
-import { ECPairFactory, ECPairAPI, TinySecp256k1Interface } from 'ecpair';
+import { ECPairFactory, ECPairAPI } from 'ecpair';
 import { getBitcoinBalance } from "@/services/balance";
 import { collectionDetails } from "@/services/collections";
 import { createOffer, getBestOffer, getOffers, getUserOffers, retrieveCancelOfferFormat, signData, submitCancelOfferData, submitSignedOfferOrder } from "@/services/offers";
 import { retrieveTokens } from "@/services/tokens";
+import tinysecp from '@bitcoinerlab/secp256k1'
 
-const tinysecp: TinySecp256k1Interface = require('tiny-secp256k1');
+
 const bidHistory: BidHistory = {};
 const ECPair: ECPairAPI = ECPairFactory(tinysecp);
 const network = bitcoin.networks.bitcoin;

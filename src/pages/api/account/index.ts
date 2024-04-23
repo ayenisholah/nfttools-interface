@@ -1,9 +1,9 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import * as bitcoin from 'bitcoinjs-lib';
-import { ECPairFactory, ECPairAPI, TinySecp256k1Interface } from 'ecpair';
+import { ECPairFactory, ECPairAPI } from 'ecpair';
 import { Wallet } from '@/interface/account.interface';
+import tinysecp from '@bitcoinerlab/secp256k1'
 
-const tinysecp: TinySecp256k1Interface = require('tiny-secp256k1');
 const ECPair: ECPairAPI = ECPairFactory(tinysecp);
 const network = bitcoin.networks.bitcoin;
 
