@@ -79,7 +79,7 @@ export async function processScheduledLoop(item: BidData, queue: PQueue<any, Que
       RESTART = false
     }
 
-    let tokens = await retrieveTokens(collectionSymbol, bidCount)
+    let tokens = await retrieveTokens(collectionSymbol, bidCount, apiKey)
     tokens = tokens.slice(0, bidCount)
 
     bidHistory[collectionSymbol].bottomListings = tokens.map(item => ({ id: item.id, price: item.listedPrice }))
