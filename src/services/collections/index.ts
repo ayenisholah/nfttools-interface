@@ -1,24 +1,16 @@
-import axiosInstance, { limiter } from "@/axios";
+import axios from "axios";
 
-let apiKey = ''
-if (typeof window !== "undefined") {
-  let settings: any = localStorage.getItem("settings");
 
-  if (settings) {
-    settings = JSON.parse(settings);
-    apiKey = settings?.state?.apiKey
+export async function collectionDetails(collectionSymbol: string, apiKey: string) {
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-NFT-API-Key': apiKey,
   }
-}
 
-
-const headers = {
-  'Content-Type': 'application/json',
-  'X-NFT-API-Key': apiKey,
-}
-export async function collectionDetails(collectionSymbol: string) {
   try {
     const url = `https://nfttools.pro/magiceden/v2/ord/btc/stat?collectionSymbol=${collectionSymbol}`
-    const { data } = await limiter.schedule(() => axiosInstance.get<CollectionData>(url, { headers }));
+    const { data } = await axios.get<CollectionData>(url, { headers })
 
     return data
 

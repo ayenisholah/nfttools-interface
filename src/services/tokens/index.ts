@@ -1,20 +1,9 @@
-import axiosInstance, { limiter } from "@/axios";
+import axios from "axios";
 
-let apiKey = ''
-if (typeof window !== "undefined") {
-  let settings: any = localStorage.getItem("settings");
-
-  if (settings) {
-    settings = JSON.parse(settings);
-    apiKey = settings?.state?.apiKey
+export async function retrieveTokens(collectionSymbol: string, bidCount: number = 20, apiKey: string) {
+  const headers = {
+    'X-NFT-API-Key': apiKey,
   }
-}
-
-const headers = {
-  'X-NFT-API-Key': apiKey,
-}
-
-export async function retrieveTokens(collectionSymbol: string, bidCount: number = 20) {
   try {
     const limit = getLimit(bidCount)
     const url = `https://nfttools.pro/magiceden/v2/ord/btc/tokens`;
@@ -28,7 +17,7 @@ export async function retrieveTokens(collectionSymbol: string, bidCount: number 
       disablePendingTransactions: true
     };
 
-    const { data } = await limiter.schedule(() => axiosInstance.get<IToken>(url, { params, headers }));
+    const { data } = await axios.get<IToken>(url, { params, headers })
 
     const tokens = data.tokens
 
@@ -40,9 +29,12 @@ export async function retrieveTokens(collectionSymbol: string, bidCount: number 
 }
 
 
-export async function getToken(tokenId: string) {
+export async function getToken(tokenId: string, apiKey: string) {
   try {
-    const { data } = await limiter.schedule(() => axiosInstance.get<Inscription>(`https://nfttools.pro/magiceden/v2/ord/btc/tokens/${tokenId}`, { headers }))
+    const headers = {
+      'X-NFT-API-Key': apiKey,
+    }
+    const { data } = await axios.get<Inscription>(`https://nfttools.pro/magiceden/v2/ord/btc/tokens/${tokenId}`, { headers })
 
     return data
   } catch (error) {

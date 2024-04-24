@@ -1,5 +1,5 @@
+import axios from 'axios';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import axiosInstance, { limiter } from '@/axios';
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -10,7 +10,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'X-NFT-API-Key': apiKey,
     }
     const url = `https://nfttools.pro/magiceden/v2/ord/btc/stat?collectionSymbol=${collectionSymbol}`
-    const { data: collection } = await limiter.schedule(() => axiosInstance.get<CollectionData>(url, { headers }));
+
+    console.log({ url });
+
+    const { data: collection } = await axios.get<CollectionData>(url, { headers })
+
+    console.log({ collection });
+
     res.status(200).json(collection);
   }
 }

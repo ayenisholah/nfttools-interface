@@ -26,8 +26,8 @@ export const useSettingsState = create<SettingsState>()(
       rateLimit: 0,
       bidExpiration: 10,
       defaultOutbidMargin: 0.00000001,
-      defaultLoopTime: 60,
-      defaultCounterLoopTime: 60,
+      defaultLoopTime: 600,
+      defaultCounterLoopTime: 600,
       updateSettings: (settings) => set((state) => ({ ...state, ...settings })),
     }),
     persistOptions
