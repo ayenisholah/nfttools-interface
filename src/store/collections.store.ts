@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist, PersistOptions } from 'zustand/middleware';
+import { useSettingsState } from './settings.store';
+import { BidState, useBidStateStore } from './bid.store';
 
 export interface CollectionData {
   collectionSymbol: string;
@@ -36,23 +38,35 @@ export const useCollectionsState = create<CollectionsState>()(
         const existingCollection = collections.find(
           (c) => c.collectionSymbol === collection.collectionSymbol
         );
-
         if (existingCollection) {
           return false;
         }
-
         set((state) => ({
           collections: [...state.collections, collection],
         }));
 
+        const { defaultLoopTime, defaultCounterLoopTime, fundingWif, tokenReceiveAddress } = useSettingsState.getState();
+        const newBidState: BidState = {
+          ...collection,
+          fundingWalletWIF: collection.fundingWalletWIF || fundingWif,
+          tokenReceiveAddress: collection.tokenReceiveAddress || tokenReceiveAddress,
+          scheduledLoop: collection.scheduledLoop || defaultLoopTime,
+          counterbidLoop: collection.counterbidLoop || defaultCounterLoopTime,
+          running: false,
+        };
+        useBidStateStore.getState().setBidStates([...useBidStateStore.getState().bidStates, newBidState]);
+
         return true;
       },
-
-      removeCollection: (index) =>
+      removeCollection: (index) => {
         set((state) => ({
           collections: state.collections.filter((_, i) => i !== index),
-        })),
+        }));
 
+        useBidStateStore.getState().setBidStates(
+          useBidStateStore.getState().bidStates.filter((_, i) => i !== index)
+        );
+      },
       editCollection: (index, updatedCollection) =>
         set((state) => ({
           collections: state.collections.map((collection, i) =>

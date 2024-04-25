@@ -1,45 +1,25 @@
 import { BidState, useBidStateStore } from "@/store/bid.store";
 import { useCollectionsState } from "@/store/collections.store";
 import { useSettingsState } from "@/store/settings.store";
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
 export default function Home() {
 	const {
-		fundingWif,
-		tokenReceiveAddress,
-		defaultLoopTime,
-		defaultCounterLoopTime,
 		rateLimit,
 		apiKey,
+		fundingWif,
+		tokenReceiveAddress,
+		bidExpiration,
+		defaultLoopTime,
+		defaultCounterLoopTime,
 	} = useSettingsState();
-	const { bidStates, setBidStates, startAll, stopAll, startBid, stopBid } =
+	const { bidStates, startAll, stopAll, startBid, stopBid } =
 		useBidStateStore();
 	const { collections } = useCollectionsState();
 
-	useEffect(() => {
-		if (bidStates.length === 0) {
-			const bids: BidState[] = collections.map((collection) => ({
-				...collection,
-				fundingWalletWIF: collection.fundingWalletWIF || fundingWif,
-				tokenReceiveAddress:
-					collection.tokenReceiveAddress || tokenReceiveAddress,
-				scheduledLoop: collection.scheduledLoop || defaultLoopTime,
-				counterbidLoop: collection.counterbidLoop || defaultCounterLoopTime,
-				running: false,
-			}));
-			setBidStates(bids);
-		}
-	}, [
-		bidStates.length,
-		collections,
-		defaultCounterLoopTime,
-		defaultLoopTime,
-		fundingWif,
-		setBidStates,
-		tokenReceiveAddress,
-	]);
-
 	const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
+	const [data, setData] = useState<BidState[]>([]);
 
 	const handleSelectAllBidsChange = (
 		event: React.ChangeEvent<HTMLInputElement>
@@ -67,6 +47,48 @@ export default function Home() {
 	};
 
 	useEffect(() => {
+		if (bidStates.length > 0) {
+			const data = bidStates.map((item) => ({
+				// col,
+			}));
+			setData(bidStates);
+		}
+	}, [bidStates]);
+
+	const combinedCollections = useMemo(() => {
+		return collections.map((collection) => {
+			const bidState = bidStates.find(
+				(bid) => bid.collectionSymbol === collection.collectionSymbol
+			);
+
+			return {
+				collectionSymbol: collection.collectionSymbol,
+				minBid: collection.minBid,
+				maxBid: collection.maxBid,
+				minFloorBid: collection.minFloorBid,
+				maxFloorBid: collection.maxFloorBid,
+				outBidMargin: collection.outBidMargin,
+				bidCount: collection.bidCount,
+				fundingWalletWIF: collection.fundingWalletWIF || fundingWif,
+				tokenReceiveAddress:
+					collection.tokenReceiveAddress || tokenReceiveAddress,
+				duration: collection.duration || bidExpiration,
+				scheduledLoop: collection.scheduledLoop || defaultLoopTime,
+				counterbidLoop: collection.counterbidLoop || defaultCounterLoopTime,
+				running: bidState?.running || false,
+			};
+		});
+	}, [
+		collections,
+		bidStates,
+		fundingWif,
+		tokenReceiveAddress,
+		bidExpiration,
+		defaultLoopTime,
+		defaultCounterLoopTime,
+	]);
+
+	useEffect(() => {
 		class Mutex {
 			private locked: boolean;
 			private waitQueue: (() => void)[];
@@ -92,17 +114,15 @@ export default function Home() {
 				}
 			}
 		}
-		const active = bidStates.filter((bid) => bid.running === true);
+		const active = combinedCollections.filter((bid) => bid.running === true);
 
 		async function startProcessing() {
-			// Run processScheduledLoop and processCounterBidLoop for each item concurrently
 			await Promise.all(
 				active.map(async (item) => {
 					let isScheduledLoopRunning = false;
 					let isCounterBidLoopRunning = false;
 					let mutex = new Mutex();
 
-					// Start processScheduledLoop and processCounterBidLoop loops concurrently for the item
 					await Promise.all([
 						(async () => {
 							while (true) {
@@ -131,7 +151,6 @@ export default function Home() {
 								if (!isScheduledLoopRunning) {
 									isCounterBidLoopRunning = true;
 									// await processCounterBidLoop(item);
-									// call counter bid api
 									isCounterBidLoopRunning = false;
 								}
 								mutex.release();
@@ -148,7 +167,7 @@ export default function Home() {
 		function delay(ms: number) {
 			return new Promise((resolve) => setTimeout(resolve, ms));
 		}
-	}, [bidStates]);
+	}, [apiKey, bidStates, combinedCollections, rateLimit]);
 
 	return (
 		<div className='py-[30px] px-[40px]'>
@@ -156,6 +175,7 @@ export default function Home() {
 			<p className='mt-2 text-[14px] font-medium text-[#AEB9E1]'>
 				You have {collections.length} collection(s) to bid on
 			</p>
+
 			<div className='mt-6'>
 				<div className='flex justify-end gap-2 mb-6'>
 					<button
@@ -220,78 +240,96 @@ export default function Home() {
 								</th>
 							</tr>
 						</thead>
+
 						<tbody>
-							{bidStates.map((bidState, index) => (
-								<tr
-									key={index}
-									className={`${
-										index % 2 === 0 ? "bg-[#0b1739]" : "bg-[#091330]"
-									}`}>
-									<td className='w-4 p-4'>
-										<div className='flex items-center'>
-											<input
-												id={`checkbox-table-search-${index}`}
-												type='checkbox'
-												className='w-4 h-4 text-[#CB3CFF] bg-gray-100 border-gray-300 rounded focus:ring-[#CB3CFF] dark:focus:ring-[#CB3CFF] dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
-												style={{ accentColor: "#CB3CFF" }}
-												checked={selectedCollections.includes(
-													bidState.collectionSymbol
-												)}
-												onChange={() =>
-													handleBidCheckboxChange(bidState.collectionSymbol)
-												}
-											/>
-											<label
-												htmlFor={`checkbox-table-search-${index}`}
-												className='sr-only'>
-												Select Bid
-											</label>
-										</div>
-									</td>
-									<td
-										scope='row'
-										className='px-6 py-5 font-medium text-gray-900 whitespace-nowrap dark:text-white text-center'>
-										{bidState.collectionSymbol}
-									</td>
-									<td className='px-6 py-5 text-center'>{bidState.minBid}</td>
-									<td className='px-6 py-5 text-center'>{bidState.maxBid}</td>
-									<td className='px-6 py-5 text-center'>
-										{bidState.minFloorBid}
-									</td>
-									<td className='px-6 py-5 text-center'>
-										{bidState.maxFloorBid}
-									</td>
-									<td className='px-6 py-5 text-center'>
-										{bidState.outBidMargin}
-									</td>
-									<td className='px-6 py-5 text-center'>{bidState.bidCount}</td>
-									<td className='px-6 py-5 text-center'>{bidState.duration}</td>
-									<td className='px-6 py-5 text-center'>
-										{bidState.running ? (
-											<div className='bg-green-500 w-4 h-4 rounded-full text-center ring ring-green-400 ring-opacity-50'></div>
-										) : (
-											<div className='bg-[#AEB9E1] w-4 h-4 rounded-full text-center'></div>
-										)}
-									</td>
-									<td className='flex items-center px-6 py-5'>
-										<button
-											className={`font-medium ${
-												bidState.running
-													? "text-red-600 hover:underline"
-													: "text-green-600 hover:underline"
-											}`}
-											onClick={() => {
-												bidState.running ? stopBid(index) : startBid(index);
-											}}>
-											{bidState.running ? "Stop" : "Start"}
-										</button>
-									</td>
+							{combinedCollections.length > 0 ? (
+								combinedCollections.map((bidState, index) => (
+									<tr
+										key={index}
+										className={`${
+											index % 2 === 0 ? "bg-[#0b1739]" : "bg-[#091330]"
+										}`}>
+										<td className='w-4 p-4'>
+											<div className='flex items-center'>
+												<input
+													id={`checkbox-table-search-${index}`}
+													type='checkbox'
+													className='w-4 h-4 text-[#CB3CFF] bg-gray-100 border-gray-300 rounded focus:ring-[#CB3CFF] dark:focus:ring-[#CB3CFF] dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
+													style={{ accentColor: "#CB3CFF" }}
+													checked={selectedCollections.includes(
+														bidState.collectionSymbol
+													)}
+													onChange={() =>
+														handleBidCheckboxChange(bidState.collectionSymbol)
+													}
+												/>
+												<label
+													htmlFor={`checkbox-table-search-${index}`}
+													className='sr-only'>
+													Select Bid
+												</label>
+											</div>
+										</td>
+										<th
+											scope='row'
+											className='px-6 py-5 font-medium text-gray-900 whitespace-nowrap dark:text-white'>
+											<Link
+												href={{
+													pathname: `/bids/${bidState.collectionSymbol}`,
+													query: { data: JSON.stringify(bidState) },
+												}}
+												className='underline font-semibold'>
+												{bidState.collectionSymbol}
+											</Link>
+										</th>
+										<td className='px-6 py-5 text-center'>{bidState.minBid}</td>
+										<td className='px-6 py-5 text-center'>{bidState.maxBid}</td>
+										<td className='px-6 py-5 text-center'>
+											{bidState.minFloorBid}
+										</td>
+										<td className='px-6 py-5 text-center'>
+											{bidState.maxFloorBid}
+										</td>
+										<td className='px-6 py-5 text-center'>
+											{bidState.outBidMargin}
+										</td>
+										<td className='px-6 py-5 text-center'>
+											{bidState.bidCount}
+										</td>
+										<td className='px-6 py-5 text-center'>
+											{bidState.duration}
+										</td>
+										<td className='px-6 py-5 text-center'>
+											{bidState.running ? (
+												<div className='bg-green-500 w-4 h-4 rounded-full text-center ring ring-green-400 ring-opacity-50'></div>
+											) : (
+												<div className='bg-[#AEB9E1] w-4 h-4 rounded-full text-center'></div>
+											)}
+										</td>
+										<td className='flex items-center px-6 py-5'>
+											<button
+												className={`font-medium ${
+													bidState.running
+														? "text-red-600 hover:underline"
+														: "text-green-600 hover:underline"
+												}`}
+												onClick={() => {
+													bidState.running ? stopBid(index) : startBid(index);
+												}}>
+												{bidState.running ? "Stop" : "Start"}
+											</button>
+										</td>
+									</tr>
+								))
+							) : (
+								<tr>
+									<td>No data available</td>
 								</tr>
-							))}
+							)}
 						</tbody>
 					</table>
 				</div>
-			</div>{" "}
+			</div>
 		</div>
 	);
 }

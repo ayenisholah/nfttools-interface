@@ -22,55 +22,67 @@ interface BidStateStore {
 
 type StorageValue<T> = T extends object ? Record<string, unknown> : T;
 
-const storage = createJSONStorage(() => sessionStorage);
+const localStorage = createJSONStorage(() => window.localStorage);
+const sessionStorage = createJSONStorage(() => window.sessionStorage);
 
 export const useBidStateStore = create<BidStateStore>()(
   persist(
-    (set, get) => ({
-      bidStates: [],
-      setBidStates: (bidStates) => set({ bidStates }),
-      startAll: (collectionSymbols) => {
-        const updatedBidStates = get().bidStates.map((bidState) => {
-          if (collectionSymbols.includes(bidState.collectionSymbol)) {
-            return { ...bidState, running: true };
-          }
-          return bidState;
-        });
-        set({ bidStates: updatedBidStates });
-      },
-      stopAll: (collectionSymbols) => {
-        const updatedBidStates = get().bidStates.map((bidState) => {
-          if (collectionSymbols.includes(bidState.collectionSymbol)) {
-            return { ...bidState, running: false };
-          }
-          return bidState;
-        });
-        set({ bidStates: updatedBidStates });
-      },
-      startBid: (index) =>
-        set((state) => {
-          const updatedBidStates = [...state.bidStates];
-          updatedBidStates[index] = { ...updatedBidStates[index], running: true };
-          return { bidStates: updatedBidStates };
-        }),
-      stopBid: (index) =>
-        set((state) => {
-          const updatedBidStates = [...state.bidStates];
-          updatedBidStates[index] = { ...updatedBidStates[index], running: false };
-          return { bidStates: updatedBidStates };
-        }),
-    }),
+    persist(
+      (set, get) => ({
+        bidStates: [],
+        setBidStates: (bidStates) => set({ bidStates }),
+        startAll: (collectionSymbols) => {
+          const updatedBidStates = get().bidStates.map((bidState) => {
+            if (collectionSymbols.includes(bidState.collectionSymbol)) {
+              return { ...bidState, running: true };
+            }
+            return bidState;
+          });
+          set({ bidStates: updatedBidStates });
+        },
+        stopAll: (collectionSymbols) => {
+          const updatedBidStates = get().bidStates.map((bidState) => {
+            if (collectionSymbols.includes(bidState.collectionSymbol)) {
+              return { ...bidState, running: false };
+            }
+            return bidState;
+          });
+          set({ bidStates: updatedBidStates });
+        },
+        startBid: (index) =>
+          set((state) => {
+            const updatedBidStates = [...state.bidStates];
+            updatedBidStates[index] = { ...updatedBidStates[index], running: true };
+            return { bidStates: updatedBidStates };
+          }),
+        stopBid: (index) =>
+          set((state) => {
+            const updatedBidStates = [...state.bidStates];
+            updatedBidStates[index] = { ...updatedBidStates[index], running: false };
+            return { bidStates: updatedBidStates };
+          }),
+      }),
+      {
+        name: 'bidStateStore',
+        storage: localStorage,
+        partialize: (state) => {
+          const partializedBidStates = state.bidStates.map((bidState) => {
+            const { running, ...restOfBidState } = bidState;
+            return restOfBidState;
+          });
+          return { bidStates: partializedBidStates as BidState[] };
+        },
+      }
+    ),
     {
-      name: 'bidStateStore',
-      storage,
+      name: 'bidStateRunning',
+      storage: sessionStorage,
       partialize: (state) => {
-        const partializedBidStates = state.bidStates.map((bidState) => ({
-          ...bidState,
+        const runningStates = state.bidStates.map((bidState) => ({
+          collectionSymbol: bidState.collectionSymbol,
           running: bidState.running,
         }));
-        return {
-          bidStates: partializedBidStates as BidState[],
-        };
+        return { bidStates: runningStates };
       },
     }
   )

@@ -8,6 +8,7 @@ import { collectionDetails } from "@/services/collections";
 import { createOffer, getBestOffer, getOffers, getUserOffers, signData, submitSignedOfferOrder } from "@/services/offers";
 import { retrieveTokens } from "@/services/tokens";
 import { cancelBid } from "@/services/bid/cancel";
+import { getBitcoinBalance } from "@/services/balance";
 
 export const bidHistory: BidHistory = {};
 const network = bitcoin.networks.bitcoin;
@@ -40,9 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const buyerPaymentAddress = bitcoin.payments.p2wpkh({ pubkey: keyPair.publicKey, network: network }).address as string
 
         try {
-          const balance = 50000
-
-          console.log({ balance });
+          const balance = await getBitcoinBalance(buyerPaymentAddress)
 
           const collectionData = await collectionDetails(collectionSymbol, apiKey)
 

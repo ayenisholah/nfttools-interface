@@ -5,7 +5,6 @@ import DualRangeSlider from "@/components/DualRangeSlider";
 import { useAccountState } from "@/store/account.store";
 import { useCollectionsState } from "@/store/collections.store";
 import { useSettingsState } from "@/store/settings.store";
-import axios from "axios";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
@@ -16,9 +15,12 @@ const CollectionForm: React.FC = () => {
 	const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
 	const [isOrdinalAddress, setIsOrdinalAddress] = useState(false);
 	const { wallets } = useAccountState();
-
+	const [collectionDetails, setCollectionDetails] = useState({
+		floorPrice: 0,
+		symbol: "",
+	});
+	const { apiKey, rateLimit } = useSettingsState();
 	const [selectedWallet, setSelectedWallet] = useState("");
-
 	const [formState, setFormState] = useState<CollectionData>({
 		collectionSymbol: "",
 		minBid: 0,
@@ -26,12 +28,13 @@ const CollectionForm: React.FC = () => {
 		minFloorBid: 50,
 		maxFloorBid: 75,
 		outBidMargin: 1e-6,
-		bidCount: 1,
+		bidCount: 10,
 		duration: 10,
 		fundingWalletWIF: "",
 		tokenReceiveAddress: "",
 		scheduledLoop: 600,
 		counterbidLoop: 600,
+		floorPrice: 0,
 	});
 
 	const handleSelectAllChange = (
@@ -108,7 +111,7 @@ const CollectionForm: React.FC = () => {
 			minFloorBid: 50,
 			maxFloorBid: 75,
 			outBidMargin: 1e-6,
-			bidCount: 1,
+			bidCount: 10,
 			duration: 10,
 			fundingWalletWIF: "",
 			tokenReceiveAddress: "",
@@ -123,16 +126,6 @@ const CollectionForm: React.FC = () => {
 		});
 		setIsOpen(false);
 	};
-
-	// check if api key is set
-
-	const [collectionDetails, setCollectionDetails] = useState({
-		floorPrice: 0,
-		symbol: "",
-	});
-
-	const { apiKey, tokenReceiveAddress, fundingWif, rateLimit } =
-		useSettingsState();
 
 	useEffect(() => {
 		async function getCollection() {
@@ -163,6 +156,7 @@ const CollectionForm: React.FC = () => {
 					...prev,
 					minBid: (+collection.floorPrice / 1e8) * 0.5,
 					maxBid: +collection.floorPrice / 1e8,
+					floorPrice: Number((+collection.floorPrice / 1e8).toFixed(9)),
 				}));
 			} catch (error) {
 				console.error(error);
@@ -242,117 +236,121 @@ const CollectionForm: React.FC = () => {
 					</button>
 				</div>
 
-				<div className='mt-6'>
-					<div className='relative overflow-x-auto shadow-md'>
-						<table className='w-full text-sm text-left text-white border border-[#343B4F] rounded-lg'>
-							<thead className='text-xs bg-[#0A1330]'>
-								<tr>
-									<th scope='col' className='p-4'>
-										<div className='flex items-center'>
-											<input
-												id='checkbox-all-search'
-												type='checkbox'
-												className='w-4 h-4 text-[#CB3CFF] bg-gray-100 border-gray-300 rounded focus:ring-[#CB3CFF] dark:focus:ring-[#CB3CFF] dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
-												checked={
-													selectedCollections.length === collections.length
-												}
-												onChange={handleSelectAllChange}
-												style={{ accentColor: "#CB3CFF" }}
-											/>
-											<label htmlFor='checkbox-all-search' className='sr-only'>
-												checkbox
-											</label>
-										</div>
-									</th>
-									<th scope='col' className='px-6 py-5'>
-										Collection Symbol
-									</th>
-									<th scope='col' className='px-6 py-5'>
-										Min Bid
-									</th>
-									<th scope='col' className='px-6 py-5'>
-										Max Bid
-									</th>
-									<th scope='col' className='px-6 py-5'>
-										Min Floor Bid
-									</th>
-									<th scope='col' className='px-6 py-5'>
-										Max Floor Bid
-									</th>
-									<th scope='col' className='px-6 py-5'>
-										Outbid Margin
-									</th>
-									<th scope='col' className='px-6 py-5'>
-										Bid Count
-									</th>
-									<th scope='col' className='px-6 py-5'>
-										Duration
-									</th>
-									<th scope='col' className='px-6 py-5'>
-										Action
-									</th>
-								</tr>
-							</thead>
-							<tbody>
-								{collections.map((collection, index) => (
-									<tr
-										key={index}
-										className={`${
-											index % 2 === 0 ? "bg-[#0b1739]" : "bg-[#091330]"
-										}`}>
-										<td className='w-4 p-4'>
+				{collections.length > 0 ? (
+					<div className='mt-6'>
+						<div className='relative overflow-x-auto shadow-md'>
+							<table className='w-full text-sm text-left text-white border border-[#343B4F] rounded-lg'>
+								<thead className='text-xs bg-[#0A1330]'>
+									<tr>
+										<th scope='col' className='p-4'>
 											<div className='flex items-center'>
 												<input
-													id={`checkbox-table-search-${index}`}
+													id='checkbox-all-search'
 													type='checkbox'
 													className='w-4 h-4 text-[#CB3CFF] bg-gray-100 border-gray-300 rounded focus:ring-[#CB3CFF] dark:focus:ring-[#CB3CFF] dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
-													style={{ accentColor: "#CB3CFF" }}
-													checked={selectedCollections.includes(
-														collection.collectionSymbol
-													)}
-													onChange={() =>
-														handleCheckboxChange(collection.collectionSymbol)
+													checked={
+														selectedCollections.length === collections.length
 													}
+													onChange={handleSelectAllChange}
+													style={{ accentColor: "#CB3CFF" }}
 												/>
 												<label
-													htmlFor={`checkbox-table-search-${index}`}
+													htmlFor='checkbox-all-search'
 													className='sr-only'>
 													checkbox
 												</label>
 											</div>
-										</td>
-										<th
-											scope='row'
-											className='px-6 py-5 font-medium text-gray-900 whitespace-nowrap dark:text-white'>
-											{collection.collectionSymbol}
 										</th>
-										<td className='px-6 py-5'>{collection.minBid}</td>
-										<td className='px-6 py-5'>{collection.maxBid}</td>
-										<td className='px-6 py-5'>{collection.minFloorBid}</td>
-										<td className='px-6 py-5'>{collection.maxFloorBid}</td>
-										<td className='px-6 py-5'>{collection.outBidMargin}</td>
-										<td className='px-6 py-5'>{collection.bidCount}</td>
-										<td className='px-6 py-5'>{collection.duration}</td>
-										<td className='flex items-center px-6 py-5'>
-											<button
-												className='font-medium text-blue-600 dark:text-blue-500 hover:underline'
-												onClick={() => {
-													setIsOpen(true);
-												}}>
-												Edit
-											</button>
-											<button
-												onClick={() => handleRemoveCollection(index)}
-												className='font-medium text-red-600 dark:text-red-500 hover:underline ms-3'>
-												Remove
-											</button>
-										</td>
+										<th scope='col' className='px-6 py-5'>
+											Collection Symbol
+										</th>
+										<th scope='col' className='px-6 py-5'>
+											Min Bid
+										</th>
+										<th scope='col' className='px-6 py-5'>
+											Max Bid
+										</th>
+										<th scope='col' className='px-6 py-5'>
+											Min Floor Bid
+										</th>
+										<th scope='col' className='px-6 py-5'>
+											Max Floor Bid
+										</th>
+										<th scope='col' className='px-6 py-5'>
+											Outbid Margin
+										</th>
+										<th scope='col' className='px-6 py-5'>
+											Bid Count
+										</th>
+										<th scope='col' className='px-6 py-5'>
+											Duration
+										</th>
+										<th scope='col' className='px-6 py-5'>
+											Action
+										</th>
 									</tr>
-								))}
-							</tbody>
-						</table>
+								</thead>
+								<tbody>
+									{collections.map((collection, index) => (
+										<tr
+											key={index}
+											className={`${
+												index % 2 === 0 ? "bg-[#0b1739]" : "bg-[#091330]"
+											}`}>
+											<td className='w-4 p-4'>
+												<div className='flex items-center'>
+													<input
+														id={`checkbox-table-search-${index}`}
+														type='checkbox'
+														className='w-4 h-4 text-[#CB3CFF] bg-gray-100 border-gray-300 rounded focus:ring-[#CB3CFF] dark:focus:ring-[#CB3CFF] dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
+														style={{ accentColor: "#CB3CFF" }}
+														checked={selectedCollections.includes(
+															collection.collectionSymbol
+														)}
+														onChange={() =>
+															handleCheckboxChange(collection.collectionSymbol)
+														}
+													/>
+													<label
+														htmlFor={`checkbox-table-search-${index}`}
+														className='sr-only'>
+														checkbox
+													</label>
+												</div>
+											</td>
+											<th
+												scope='row'
+												className='px-6 py-5 font-medium text-gray-900 whitespace-nowrap dark:text-white'>
+												{collection.collectionSymbol}
+											</th>
+											<td className='px-6 py-5'>{collection.minBid}</td>
+											<td className='px-6 py-5'>{collection.maxBid}</td>
+											<td className='px-6 py-5'>{collection.minFloorBid}</td>
+											<td className='px-6 py-5'>{collection.maxFloorBid}</td>
+											<td className='px-6 py-5'>{collection.outBidMargin}</td>
+											<td className='px-6 py-5'>{collection.bidCount}</td>
+											<td className='px-6 py-5'>{collection.duration}</td>
+											<td className='flex items-center px-6 py-5'>
+												<button
+													className='font-medium text-blue-600 dark:text-blue-500 hover:underline'
+													onClick={() => {
+														setIsOpen(true);
+													}}>
+													Edit
+												</button>
+												<button
+													onClick={() => handleRemoveCollection(index)}
+													className='font-medium text-red-600 dark:text-red-500 hover:underline ms-3'>
+													Remove
+												</button>
+											</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
 					</div>
-				</div>
+				) : null}
 
 				{isOpen && (
 					<div className='fixed inset-0 flex items-center justify-center z-50'>
@@ -650,4 +648,5 @@ export interface CollectionData {
 	tokenReceiveAddress?: string;
 	scheduledLoop?: number;
 	counterbidLoop?: number;
+	floorPrice?: number;
 }

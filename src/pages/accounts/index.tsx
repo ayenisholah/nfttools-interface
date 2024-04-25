@@ -256,63 +256,66 @@ const Accounts = () => {
 			<h4 className='mt-6 text-[14px] font-medium text-[#AEB9E1]'>
 				Manage your keys
 			</h4>
-			<div className='mt-6'>
-				<div className='relative overflow-x-auto shadow-md'>
-					<table className='w-full text-sm text-left text-white border border-[#343B4F] rounded-lg'>
-						<thead className='text-xs bg-[#0A1330]'>
-							<tr>
-								<th scope='col' className='px-6 py-5'>
-									Label
-								</th>
-								<th scope='col' className='px-6 py-5'>
-									Address
-								</th>
-								<th scope='col' className='px-6 py-5'>
-									Private Key
-								</th>
-								<th scope='col' className='px-6 py-5'>
-									Actions
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{wallets.map((wallet, index) => (
-								<tr
-									key={index}
-									className={`${
-										index % 2 === 0 ? "bg-[#0b1739]" : "bg-[#091330]"
-									}`}>
-									<td className='px-6 py-5'>{wallet.label}</td>
-									<td className='px-6 py-5'>{wallet.address}</td>
-									<td className='px-6 py-5 flex items-center'>
-										{showPrivateKeys[index] ? (
-											wallet.privateKey
-										) : (
-											<span className='blur-sm'>••••••••</span>
-										)}
-										<button
-											className='ml-2 focus:outline-none'
-											onClick={() => togglePrivateKeyVisibility(index)}>
-											{showPrivateKeys[index] ? (
-												<InvisibleIcon />
-											) : (
-												<VisibleIcon />
-											)}
-										</button>
-									</td>
-									<td className='px-6 py-5'>
-										<button
-											className='text-red-500 focus:outline-none'
-											onClick={() => handleRemoveWallet(index)}>
-											Delete
-										</button>
-									</td>
+
+			{wallets.length > 0 ? (
+				<div className='mt-6'>
+					<div className='relative overflow-x-auto shadow-md'>
+						<table className='w-full text-sm text-left text-white border border-[#343B4F] rounded-lg'>
+							<thead className='text-xs bg-[#0A1330]'>
+								<tr>
+									<th scope='col' className='px-6 py-5'>
+										Label
+									</th>
+									<th scope='col' className='px-6 py-5'>
+										Address
+									</th>
+									<th scope='col' className='px-6 py-5'>
+										Private Key
+									</th>
+									<th scope='col' className='px-6 py-5'>
+										Actions
+									</th>
 								</tr>
-							))}
-						</tbody>
-					</table>
+							</thead>
+							<tbody>
+								{wallets.map((wallet, index) => (
+									<tr
+										key={index}
+										className={`${
+											index % 2 === 0 ? "bg-[#0b1739]" : "bg-[#091330]"
+										}`}>
+										<td className='px-6 py-5'>{wallet.label}</td>
+										<td className='px-6 py-5'>{wallet.address}</td>
+										<td className='px-6 py-5 flex items-center'>
+											{showPrivateKeys[index] ? (
+												wallet.privateKey
+											) : (
+												<span className='blur-sm'>••••••••</span>
+											)}
+											<button
+												className='ml-2 focus:outline-none'
+												onClick={() => togglePrivateKeyVisibility(index)}>
+												{showPrivateKeys[index] ? (
+													<InvisibleIcon />
+												) : (
+													<VisibleIcon />
+												)}
+											</button>
+										</td>
+										<td className='px-6 py-5'>
+											<button
+												className='text-red-500 focus:outline-none'
+												onClick={() => handleRemoveWallet(index)}>
+												Delete
+											</button>
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
 				</div>
-			</div>
+			) : null}
 		</div>
 	);
 };
