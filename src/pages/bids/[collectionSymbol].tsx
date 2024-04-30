@@ -171,12 +171,18 @@ const CollectionBid = () => {
 								rowData.fundingWalletWIF.slice(-5)}
 						</div>
 						<div
-							className='bg-blue-500 text-white px-3 py-2 rounded'
+							className='bg-blue-500 text-white px-3 py-2 rounded underline flex gap-2'
 							title={rowData.tokenReceiveAddress}>
-							Token Receive Address:{" "}
-							{rowData.tokenReceiveAddress.slice(0, 5) +
-								"....." +
-								rowData.tokenReceiveAddress.slice(-5)}
+							<Link
+								target='_blank'
+								href={`https://magiceden.io/ordinals/wallet?walletAddress=${rowData.tokenReceiveAddress}&collectionSymbol=`}>
+								Token Receive Address:{" "}
+								{rowData.tokenReceiveAddress.slice(0, 5) +
+									"....." +
+									rowData.tokenReceiveAddress.slice(-5)}
+							</Link>
+
+							<ExternalLink />
 						</div>
 						<div className='bg-blue-300 text-gray-900 px-3 py-2 rounded'>
 							Duration: {rowData.duration}
