@@ -304,7 +304,7 @@ const CollectionBid = () => {
 											<td>{"..." + offer.tokenId.slice(-8)}</td>
 										</Link>
 										<td className='px-6 py-5'>
-											{offer.price * 1e-8}{" "}
+											{(offer.price * 1e-8).toFixed(8)}{" "}
 											<span className='text-[#998ca6]'>BTC</span>
 										</td>
 										<td className='px-6 py-5'>
