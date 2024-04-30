@@ -96,9 +96,16 @@ const Settings: React.FC = () => {
 	const { wallets } = useAccountState();
 	const [selectedWallet, setSelectedWallet] = useState("");
 
-	const handleWalletChange = (privateKey: string) => {
-		updateSettings({ fundingWif: privateKey });
-		setSelectedWallet(privateKey);
+	const handleWalletChange = (address: string) => {
+		const foundWallet = wallets.find(
+			(item) => item.address.toLowerCase() === address.toLowerCase()
+		);
+
+		if (foundWallet) {
+			updateSettings({ fundingWif: foundWallet.privateKey });
+			setSelectedWallet(address);
+		}
+
 		setIsOpen(false);
 	};
 
@@ -129,7 +136,7 @@ const Settings: React.FC = () => {
 				Default bidding configuration
 			</p>
 
-			<div className='mt-6 w-[768px] border border-[#343B4F] rounded-xl p-8 bg-[#0b1739]'>
+			<div className='mt-6 md:w-[768px] border border-[#343B4F] rounded-xl p-8 bg-[#0b1739]'>
 				<div>
 					<label
 						htmlFor='api_key'
@@ -161,9 +168,8 @@ const Settings: React.FC = () => {
 							onClick={toggleDropdown}>
 							<span className={selectedWallet ? "text-white" : "text-gray-400"}>
 								{selectedWallet
-									? wallets.find(
-											(wallet) => wallet.privateKey === selectedWallet
-									  )?.privateKey
+									? wallets.find((wallet) => wallet.address === selectedWallet)
+											?.address
 									: "Select a wallet"}
 							</span>
 							<ChevronDownIcon
@@ -180,8 +186,8 @@ const Settings: React.FC = () => {
 										className={`p-[14px] text-white cursor-pointer hover:bg-[#343B4F] ${
 											selectedWallet === wallet.privateKey ? "bg-[#343B4F]" : ""
 										}`}
-										onClick={() => handleWalletChange(wallet.privateKey)}>
-										{wallet.label}
+										onClick={() => handleWalletChange(wallet.address)}>
+										{wallet.address}
 									</div>
 								))}
 							</div>
@@ -211,7 +217,7 @@ const Settings: React.FC = () => {
 				</div>
 
 				{/* timers */}
-				<div className='mt-6 flex space-x-4'>
+				<div className='mt-6 flex flex-col md:flex-row md:space-x-4'>
 					<div>
 						<label
 							htmlFor='default_loop_time'
@@ -251,7 +257,7 @@ const Settings: React.FC = () => {
 				</div>
 
 				{/* others */}
-				<div className='mt-6 flex space-x-4'>
+				<div className='mt-6 flex flex-col md:flex-row md:space-x-4'>
 					<div>
 						<label
 							htmlFor='rate_limit'

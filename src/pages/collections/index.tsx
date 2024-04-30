@@ -15,11 +15,16 @@ const CollectionForm: React.FC = () => {
 	const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
 	const [isOrdinalAddress, setIsOrdinalAddress] = useState(false);
 	const { wallets } = useAccountState();
+	const [editIndex, setEditIndex] = useState<number | null>(null);
 	const [collectionDetails, setCollectionDetails] = useState({
 		floorPrice: 0,
 		symbol: "",
 	});
-	const { apiKey, rateLimit } = useSettingsState();
+	const {
+		apiKey,
+		rateLimit,
+		tokenReceiveAddress: defaultTokenReceiveAddress,
+	} = useSettingsState();
 	const [selectedWallet, setSelectedWallet] = useState("");
 	const [formState, setFormState] = useState<CollectionData>({
 		collectionSymbol: "",
@@ -66,7 +71,7 @@ const CollectionForm: React.FC = () => {
 		setSelectedCollections(newSelectedCollections);
 	};
 
-	const { collections, removeCollection, addCollection } =
+	const { collections, removeCollection, addCollection, editCollection } =
 		useCollectionsState();
 
 	const handleInputChange = (
@@ -99,11 +104,17 @@ const CollectionForm: React.FC = () => {
 			return;
 		}
 
-		if (!isOrdinalAddress) {
+		if (!isOrdinalAddress && !defaultTokenReceiveAddress) {
 			toast.error("Please enter a valid ordinal address.");
 			return;
 		}
-		addCollection(formState);
+
+		if (editIndex !== null) {
+			editCollection(editIndex, formState);
+		} else {
+			addCollection(formState);
+		}
+
 		setFormState({
 			collectionSymbol: "",
 			minBid: 0,
@@ -118,13 +129,47 @@ const CollectionForm: React.FC = () => {
 			scheduledLoop: 600,
 			counterbidLoop: 600,
 		});
+		setEditIndex(null);
+		setIsOpen(false);
 
 		setIsOrdinalAddress(false);
 		setCollectionDetails({
 			symbol: "",
 			floorPrice: 0,
 		});
+	};
+
+	function handleClose() {
 		setIsOpen(false);
+
+		setFormState({
+			collectionSymbol: "",
+			minBid: 0,
+			maxBid: 0,
+			minFloorBid: 50,
+			maxFloorBid: 75,
+			outBidMargin: 1e-6,
+			bidCount: 10,
+			duration: 10,
+			fundingWalletWIF: "",
+			tokenReceiveAddress: "",
+			scheduledLoop: 600,
+			counterbidLoop: 600,
+		});
+		setEditIndex(null);
+
+		setIsOrdinalAddress(false);
+		setCollectionDetails({
+			symbol: "",
+			floorPrice: 0,
+		});
+	}
+
+	const onEdit = (index: number) => {
+		setEditIndex(index);
+		const collectionToEdit = collections[index];
+		setFormState(collectionToEdit);
+		setIsOpen(true);
 	};
 
 	useEffect(() => {
@@ -152,12 +197,14 @@ const CollectionForm: React.FC = () => {
 					floorPrice: Number((+collection.floorPrice / 1e8).toFixed(9)),
 				});
 
-				setFormState((prev) => ({
-					...prev,
-					minBid: (+collection.floorPrice / 1e8) * 0.5,
-					maxBid: +collection.floorPrice / 1e8,
-					floorPrice: Number((+collection.floorPrice / 1e8).toFixed(9)),
-				}));
+				if (formState.minBid === 0 || formState.maxBid === 0) {
+					setFormState((prev) => ({
+						...prev,
+						minBid: (+collection.floorPrice / 1e8) * 0.5,
+						maxBid: +collection.floorPrice / 1e8,
+						floorPrice: Number((+collection.floorPrice / 1e8).toFixed(9)),
+					}));
+				}
 			} catch (error) {
 				console.error(error);
 			}
@@ -195,9 +242,20 @@ const CollectionForm: React.FC = () => {
 		setOpenDropdown(!openDropDown);
 	};
 
-	const handleWalletChange = (privateKey: string) => {
-		setSelectedWallet(privateKey);
-		setFormState((prev) => ({ ...prev, fundingWalletWIF: privateKey }));
+	const handleWalletChange = (address: string) => {
+		const foundWallet = wallets.find(
+			(item) => item.address.toLowerCase() === address.toLowerCase()
+		);
+
+		if (foundWallet) {
+			setFormState((prev) => ({
+				...prev,
+				fundingWalletWIF: foundWallet.privateKey,
+			}));
+
+			setSelectedWallet(address);
+		}
+		setSelectedWallet(address);
 		setOpenDropdown(false);
 	};
 
@@ -229,7 +287,7 @@ const CollectionForm: React.FC = () => {
 
 				<div className='flex justify-end'>
 					<button
-						className='bg-[#CB3CFF] px-3 py-[14px] w-[180px] font-semibold text-white text-sm rounded flex justify-center items-center gap-3 mt-6'
+						className='bg-[#CB3CFF] text-white font-medium text-xs py-2 px-4 rounded flex gap-2 w-[140px] justify-evenly'
 						onClick={() => setIsOpen(true)}>
 						Add New
 						<PlusIcon />
@@ -332,10 +390,8 @@ const CollectionForm: React.FC = () => {
 											<td className='px-6 py-5'>{collection.duration}</td>
 											<td className='flex items-center px-6 py-5'>
 												<button
-													className='font-medium text-blue-600 dark:text-blue-500 hover:underline'
-													onClick={() => {
-														setIsOpen(true);
-													}}>
+													onClick={() => onEdit(index)}
+													className='font-medium text-blue-600 dark:text-blue-500 hover:underline ms-3'>
 													Edit
 												</button>
 												<button
@@ -355,13 +411,16 @@ const CollectionForm: React.FC = () => {
 				{isOpen && (
 					<div className='fixed inset-0 flex items-center justify-center z-50'>
 						<div className='mt-6 w-[768px] border border-[#343B4F] rounded-xl p-8 bg-[#0b1739]'>
-							<div className='flex justify-between items-center mb-6'>
+							<div className='flex justify-between items-center'>
 								<h2 className='text-xl font-semibold text-white'>
-									Add New Collection
+									{editIndex !== null
+										? "Edit Collection"
+										: "Add New Collection"}
 								</h2>
+
 								<button
 									className='text-white hover:text-gray-300'
-									onClick={() => setIsOpen(false)}>
+									onClick={handleClose}>
 									<svg
 										xmlns='http://www.w3.org/2000/svg'
 										className='h-6 w-6'
@@ -377,7 +436,16 @@ const CollectionForm: React.FC = () => {
 									</svg>
 								</button>
 							</div>
-							<div>
+							{!apiKey ? (
+								<span className='bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded'>
+									NFT TOOLS API KEY not set, please add key in &nbsp;
+									<Link href='/settings' className='underline'>
+										settings
+									</Link>
+									&nbsp; to verify your collections
+								</span>
+							) : null}
+							<div className='mt-6'>
 								<label
 									htmlFor='collection_symbol'
 									className='mb-2 text-sm font-medium text-white flex gap-2 items-center'>
@@ -394,6 +462,7 @@ const CollectionForm: React.FC = () => {
 									value={formState.collectionSymbol}
 									onChange={(e) => handleInputChange(e, "collectionSymbol")}
 									required
+									disabled={!apiKey}
 								/>
 							</div>
 							<div className='mt-6'>
@@ -435,8 +504,8 @@ const CollectionForm: React.FC = () => {
 											}>
 											{selectedWallet
 												? wallets.find(
-														(wallet) => wallet.privateKey === selectedWallet
-												  )?.privateKey
+														(wallet) => wallet.address === selectedWallet
+												  )?.address
 												: "Select a wallet"}
 										</span>
 										<ChevronDownIcon
@@ -455,8 +524,8 @@ const CollectionForm: React.FC = () => {
 															? "bg-[#343B4F]"
 															: ""
 													}`}
-													onClick={() => handleWalletChange(wallet.privateKey)}>
-													{wallet.label}
+													onClick={() => handleWalletChange(wallet.address)}>
+													{wallet.address}
 												</div>
 											))}
 										</div>
@@ -471,6 +540,7 @@ const CollectionForm: React.FC = () => {
 
 							<DualRangeSlider
 								setFormState={setFormState}
+								formState={formState}
 								floorPrice={collectionDetails.floorPrice}
 							/>
 
@@ -486,8 +556,10 @@ const CollectionForm: React.FC = () => {
 										id='min_bid'
 										className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
 										placeholder={
-											collectionDetails.floorPrice
+											collectionDetails.floorPrice && formState.minBid === 0
 												? (collectionDetails.floorPrice * 0.5).toString()
+												: formState.minBid > 0
+												? formState.minBid.toString()
 												: ""
 										}
 										inputMode='numeric'
@@ -609,20 +681,22 @@ const CollectionForm: React.FC = () => {
 
 							<div className='flex justify-end mt-6'>
 								<button
-									className={`py-[14px] w-[180px] font-semibold text-sm rounded ${
-										!collectionDetails.symbol ||
-										!collectionDetails.floorPrice ||
-										!isOrdinalAddress
-											? "bg-gray-400 cursor-not-allowed"
-											: "bg-[#CB3CFF] text-white"
-									}`}
+									className={`py-[14px] w-[180px] font-semibold text-sm rounded 
+    ${
+			!collectionDetails.symbol ||
+			!collectionDetails.floorPrice ||
+			(!isOrdinalAddress && !defaultTokenReceiveAddress)
+				? "bg-gray-400 cursor-not-allowed w-[140px] text-white font-medium text-xs py-2 px-4 rounded"
+				: "bg-[#CB3CFF] w-[140px] text-white font-medium text-xs py-2 px-4 rounded"
+		}
+  `}
 									onClick={handleAddCollection}
 									disabled={
 										!collectionDetails.symbol ||
 										!collectionDetails.floorPrice ||
-										!isOrdinalAddress
+										(!isOrdinalAddress && !defaultTokenReceiveAddress)
 									}>
-									ADD
+									{editIndex !== null ? "SAVE" : "ADD"}
 								</button>
 							</div>
 						</div>

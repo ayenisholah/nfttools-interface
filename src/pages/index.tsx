@@ -48,9 +48,6 @@ export default function Home() {
 
 	useEffect(() => {
 		if (bidStates.length > 0) {
-			const data = bidStates.map((item) => ({
-				// col,
-			}));
 			setData(bidStates);
 		}
 	}, [bidStates]);
@@ -88,86 +85,7 @@ export default function Home() {
 		defaultCounterLoopTime,
 	]);
 
-	useEffect(() => {
-		class Mutex {
-			private locked: boolean;
-			private waitQueue: (() => void)[];
-
-			constructor() {
-				this.locked = false;
-				this.waitQueue = [];
-			}
-
-			async acquire() {
-				if (this.locked) {
-					await new Promise<void>((resolve) => this.waitQueue.push(resolve));
-				}
-				this.locked = true;
-			}
-
-			release() {
-				if (this.waitQueue.length > 0) {
-					const resolve = this.waitQueue.shift();
-					resolve?.();
-				} else {
-					this.locked = false;
-				}
-			}
-		}
-		const active = combinedCollections.filter((bid) => bid.running === true);
-
-		async function startProcessing() {
-			await Promise.all(
-				active.map(async (item) => {
-					let isScheduledLoopRunning = false;
-					let isCounterBidLoopRunning = false;
-					let mutex = new Mutex();
-
-					await Promise.all([
-						(async () => {
-							while (true) {
-								await mutex.acquire();
-								if (!isCounterBidLoopRunning) {
-									isScheduledLoopRunning = true;
-									fetch("/api/bid", {
-										method: "POST",
-										headers: {
-											"Content-Type": "application/json",
-										},
-										body: JSON.stringify({
-											requestType: "processScheduledLoop",
-											data: { ...item, apiKey, rateLimit },
-										}),
-									});
-									isScheduledLoopRunning = false;
-								}
-								mutex.release();
-								await delay(item.scheduledLoop * 1000);
-							}
-						})(),
-						(async () => {
-							while (true) {
-								await mutex.acquire();
-								if (!isScheduledLoopRunning) {
-									isCounterBidLoopRunning = true;
-									// await processCounterBidLoop(item);
-									isCounterBidLoopRunning = false;
-								}
-								mutex.release();
-								await delay(item.counterbidLoop * 1000);
-							}
-						})(),
-					]);
-				})
-			);
-		}
-
-		startProcessing();
-
-		function delay(ms: number) {
-			return new Promise((resolve) => setTimeout(resolve, ms));
-		}
-	}, [apiKey, bidStates, combinedCollections, rateLimit]);
+	console.log({ combinedCollections });
 
 	return (
 		<div className='py-[30px] px-[40px]'>
@@ -179,12 +97,12 @@ export default function Home() {
 			<div className='mt-6'>
 				<div className='flex justify-end gap-2 mb-6'>
 					<button
-						className='bg-[#CB3CFF] text-white font-semibold py-2 px-4 rounded'
+						className='bg-[#CB3CFF] w-[140px] text-white font-medium text-xs py-2 px-4 rounded'
 						onClick={() => startAll(selectedCollections)}>
 						Start
 					</button>
 					<button
-						className='bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded'
+						className='bg-red-500 w-[140px] text-white font-medium text-xs py-2 px-4 rounded'
 						onClick={() => stopAll(selectedCollections)}>
 						Stop
 					</button>

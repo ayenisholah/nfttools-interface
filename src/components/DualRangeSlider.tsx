@@ -3,6 +3,7 @@ import { Range } from "react-range";
 
 interface Props {
 	setFormState: React.Dispatch<React.SetStateAction<CollectionData>>;
+	formState: CollectionData;
 	floorPrice: number;
 }
 
@@ -21,8 +22,18 @@ export interface CollectionData {
 	counterbidLoop?: number;
 }
 
-const DualRangeSlider: React.FC<Props> = ({ setFormState, floorPrice }) => {
-	const [values, setValues] = useState([50, 75]);
+const DualRangeSlider: React.FC<Props> = ({
+	setFormState,
+	floorPrice,
+	formState,
+}) => {
+	// get collections data
+
+	console.log({ formState });
+
+	const { minFloorBid, maxFloorBid } = formState;
+
+	const [values, setValues] = useState([minFloorBid, maxFloorBid]);
 
 	const handleChange = (newValues: number[]) => {
 		if (

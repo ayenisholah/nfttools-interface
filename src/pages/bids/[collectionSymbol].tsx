@@ -1,5 +1,9 @@
+import ExternalLink from "@/assets/icons/ExternalLink";
 import { IOffer } from "@/services/offers";
+import { useBidStateStore } from "@/store/bid.store";
+import { useOfferStateStore } from "@/store/offer.store";
 import { useSettingsState } from "@/store/settings.store";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 
@@ -35,10 +39,29 @@ const CollectionBid = () => {
 	const rowData = data ? JSON.parse(data as string) : null;
 
 	const { apiKey } = useSettingsState();
+	const { cancelAll, cancel } = useOfferStateStore();
+
+	const { bidStates, startBid, stopBid } = useBidStateStore();
+	const collection = bidStates.find(
+		(item) => item.collectionSymbol === collectionSymbol
+	);
+
+	const index = bidStates.findIndex(
+		(item) => item.collectionSymbol === collectionSymbol
+	);
+	function handleStart() {
+		if (index > -1) {
+			startBid(index);
+		}
+	}
+
+	function handleStop() {
+		if (index > -1) {
+			stopBid(index);
+		}
+	}
 
 	useEffect(() => {
-		console.log("hello world");
-
 		async function fetchOffers() {
 			try {
 				const tokenReceiveAddress = rowData.tokenReceiveAddress;
@@ -53,13 +76,45 @@ const CollectionBid = () => {
 					throw new Error("Failed to fetch data");
 				}
 				const responseData: IOffer[] = await response.json();
-				setOffers(responseData);
+
+				const offers = responseData
+					.filter((item) => item.token.collectionSymbol === collectionSymbol)
+					.sort((a, b) => a.price - b.price);
+				setOffers(offers);
 			} catch (error) {
 				console.error(error);
 			}
 		}
 
-		const scheduledLoop = 3;
+		fetchOffers();
+	}, [apiKey, collectionSymbol, rowData?.tokenReceiveAddress]);
+
+	useEffect(() => {
+		async function fetchOffers() {
+			try {
+				const tokenReceiveAddress = rowData.tokenReceiveAddress;
+				const url = `/api/offers?requestType=getCollectionOffers&tokenReceiveAddress=${tokenReceiveAddress}&collectionSymbol=${collectionSymbol}&apiKey=${apiKey}`;
+				const response = await fetch(url.toString(), {
+					method: "GET",
+					headers: {
+						"Content-Type": "application/json",
+					},
+				});
+				if (!response.ok) {
+					throw new Error("Failed to fetch data");
+				}
+				const responseData: IOffer[] = await response.json();
+
+				const offers = responseData
+					.filter((item) => item.token.collectionSymbol === collectionSymbol)
+					.sort((a, b) => a.price - b.price);
+				setOffers(offers);
+			} catch (error) {
+				console.error(error);
+			}
+		}
+
+		const scheduledLoop = 10;
 		const intervalId = setInterval(() => {
 			fetchOffers();
 		}, scheduledLoop * 1000);
@@ -76,9 +131,13 @@ const CollectionBid = () => {
 
 	return (
 		<div className='py-6 px-8 text-white'>
-			<h2 className='text-white text-[20px] font-semibold'>
-				Collection: {collectionSymbol}
-			</h2>
+			<Link
+				target='_blank'
+				href={`https://magiceden.io/ordinals/marketplace/${collectionSymbol}`}
+				className='flex items-center gap-4 underline'>
+				<h2 className='text-white text-base font-medium'>{collectionSymbol}</h2>
+				<ExternalLink />
+			</Link>
 			<p className='my-2 text-[14px] font-medium text-[#AEB9E1]'>
 				bid configuration
 			</p>
@@ -127,20 +186,40 @@ const CollectionBid = () => {
 						</div>
 						<div
 							className={`px-3 py-2 text-white rounded ${
-								rowData.running ? "bg-green-500" : "bg-red-500"
+								collection?.running ? "bg-green-500" : "bg-red-500"
 							}`}>
-							Status: {rowData.running ? "Running" : "Stopped"}
+							Status: {collection?.running ? "Running" : "Stopped"}
 						</div>
 					</div>
 				</div>
 			)}
 
-			{/* current bids */}
 			<div className='mt-6'>
 				<div className='flex justify-end gap-2 mb-6'>
+					{collection && collection.running ? (
+						<button
+							className='bg-red-500 w-[140px] text-white font-medium text-xs py-2 px-4 rounded'
+							onClick={handleStop}>
+							Stop
+						</button>
+					) : (
+						<button
+							className='bg-[#CB3CFF] w-[140px] text-white font-medium text-xs py-2 px-4 rounded'
+							onClick={handleStart}>
+							Start
+						</button>
+					)}
+
 					<button
-						className='bg-[#CB3CFF] text-white font-semibold py-2 px-4 rounded'
-						onClick={() => {}}>
+						className='bg-red-500 w-[140px] text-white font-medium text-xs py-2 px-4 rounded'
+						onClick={async () =>
+							await cancelAll(
+								selectedCollections,
+								rowData.fundingWalletWIF,
+								apiKey,
+								collectionSymbol as string
+							)
+						}>
 						Cancel All Offers
 					</button>
 				</div>
@@ -163,6 +242,7 @@ const CollectionBid = () => {
 										</label>
 									</div>
 								</th>
+
 								<th scope='col' className='px-6 py-5'>
 									Token ID
 								</th>
@@ -172,6 +252,10 @@ const CollectionBid = () => {
 
 								<th scope='col' className='px-6 py-5'>
 									Listed Price
+								</th>
+
+								<th scope='col' className='px-6 py-5'>
+									Potential Profit
 								</th>
 								<th scope='col' className='px-6 py-5'>
 									Expiration Date
@@ -207,18 +291,27 @@ const CollectionBid = () => {
 												</label>
 											</div>
 										</td>
-										<td className='px-6 py-5'>
-											{"..." + offer.tokenId.slice(-8)}
-										</td>
+										<Link
+											className='px-6 py-5 font-medium underline'
+											target='_blank'
+											href={`https://magiceden.io/ordinals/item-details/${offer.tokenId}`}>
+											<td>{"..." + offer.tokenId.slice(-8)}</td>
+										</Link>
 										<td className='px-6 py-5'>{offer.price}</td>
 										<td className='px-6 py-5'>{offer.token.listedPrice}</td>
+
+										<td className='px-6 py-5'>
+											{offer.token.listedPrice - offer.price}
+										</td>
 										<td className='px-6 py-5'>
 											{calculateMinutesDifference(offer.expirationDate)} m
 										</td>
 										<td className='flex items-center px-6 py-5'>
 											<button
 												className='text-red-600 hover:underline'
-												onClick={() => {}}>
+												onClick={async () => {
+													await cancel(offer, rowData.fundingWalletWIF, apiKey);
+												}}>
 												Cancel
 											</button>
 										</td>
