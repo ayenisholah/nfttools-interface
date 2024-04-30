@@ -130,19 +130,19 @@ export default function Home() {
 									Collection Symbol
 								</th>
 								<th scope='col' className='px-6 py-5'>
-									Min Bid
+									Min Bid <span className='text-[#998ca6]'>BTC</span>
 								</th>
 								<th scope='col' className='px-6 py-5'>
-									Max Bid
+									Max Bid <span className='text-[#998ca6]'>BTC</span>
 								</th>
 								<th scope='col' className='px-6 py-5'>
-									Min Floor Bid
+									Min Floor Bid <span className='text-[#998ca6]'>%</span>
 								</th>
 								<th scope='col' className='px-6 py-5'>
-									Max Floor Bid
+									Max Floor Bid <span className='text-[#998ca6]'>%</span>
 								</th>
 								<th scope='col' className='px-6 py-5'>
-									Outbid Margin
+									Outbid Margin <span className='text-[#998ca6]'>BTC</span>
 								</th>
 								<th scope='col' className='px-6 py-5'>
 									Bid Count

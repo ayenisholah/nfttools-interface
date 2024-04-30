@@ -381,11 +381,26 @@ const CollectionForm: React.FC = () => {
 												className='px-6 py-5 font-medium text-gray-900 whitespace-nowrap dark:text-white'>
 												{collection.collectionSymbol}
 											</th>
-											<td className='px-6 py-5'>{collection.minBid}</td>
-											<td className='px-6 py-5'>{collection.maxBid}</td>
-											<td className='px-6 py-5'>{collection.minFloorBid}</td>
-											<td className='px-6 py-5'>{collection.maxFloorBid}</td>
-											<td className='px-6 py-5'>{collection.outBidMargin}</td>
+											<td className='px-6 py-5'>
+												{collection.minBid}{" "}
+												<span className='text-[#998ca6]'>BTC</span>
+											</td>
+											<td className='px-6 py-5'>
+												{collection.maxBid}{" "}
+												<span className='text-[#998ca6]'>BTC</span>
+											</td>
+											<td className='px-6 py-5'>
+												{collection.minFloorBid}{" "}
+												<span className='text-[#998ca6]'>%</span>
+											</td>
+											<td className='px-6 py-5'>
+												{collection.maxFloorBid}{" "}
+												<span className='text-[#998ca6]'>%</span>
+											</td>
+											<td className='px-6 py-5'>
+												{collection.outBidMargin}{" "}
+												<span className='text-[#998ca6]'>BTC</span>
+											</td>
 											<td className='px-6 py-5'>{collection.bidCount}</td>
 											<td className='px-6 py-5'>{collection.duration}</td>
 											<td className='flex items-center px-6 py-5'>
@@ -549,7 +564,7 @@ const CollectionForm: React.FC = () => {
 									<label
 										htmlFor='min_bid'
 										className='block mb-2 text-sm font-medium text-white'>
-										MIN BID
+										MIN BID <span className='text-[#998ca6]'>(BTC)</span>
 									</label>
 									<input
 										type='number'
@@ -572,7 +587,7 @@ const CollectionForm: React.FC = () => {
 									<label
 										htmlFor='max_bid'
 										className='block mb-2 text-sm font-medium text-white'>
-										MAX BID
+										MAX BID <span className='text-[#998ca6]'>(BTC)</span>
 									</label>
 									<input
 										type='number'
@@ -592,7 +607,8 @@ const CollectionForm: React.FC = () => {
 									<label
 										htmlFor='scheduled_loop'
 										className='block mb-2 text-sm font-medium text-white'>
-										SCHEDULED LOOP (seconds)
+										SCHEDULED LOOP{" "}
+										<span className='text-[#998ca6]'>(seconds)</span>
 									</label>
 									<input
 										type='number'
@@ -610,7 +626,8 @@ const CollectionForm: React.FC = () => {
 									<label
 										htmlFor='counterbid_loop'
 										className='block mb-2 text-sm font-medium text-white'>
-										COUNTERBID LOOP (seconds)
+										COUNTERBID LOOP{" "}
+										<span className='text-[#998ca6]'>(seconds)</span>
 									</label>
 									<input
 										type='number'
@@ -630,7 +647,7 @@ const CollectionForm: React.FC = () => {
 									<label
 										htmlFor='out_bid_margin'
 										className='block mb-2 text-sm font-medium text-white'>
-										OUT BID MARGIN
+										OUT BID MARGIN <span className='text-[#998ca6]'>(BTC)</span>
 									</label>
 									<input
 										type='number'
@@ -664,7 +681,7 @@ const CollectionForm: React.FC = () => {
 									<label
 										htmlFor='duration'
 										className='block mb-2 text-sm font-medium text-white'>
-										DURATION
+										DURATION <span className='text-[#998ca6]'>(minutes)</span>
 									</label>
 									<input
 										type='number'
