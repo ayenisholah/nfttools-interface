@@ -1,25 +1,60 @@
+import CheckIcon from "@/assets/icons/CheckIcon";
+import ChevronDownIcon from "@/assets/icons/ChevronDownIcon";
+import PlusIcon from "@/assets/icons/PlusIcon";
+import DualRangeSlider from "@/components/DualRangeSlider";
+import { useAccountState } from "@/store/account.store";
 import { BidState, useBidStateStore } from "@/store/bid.store";
 import { useCollectionsState } from "@/store/collections.store";
 import { useSettingsState } from "@/store/settings.store";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "react-toastify";
 
 export default function Home() {
 	const {
-		rateLimit,
 		apiKey,
+		rateLimit,
 		fundingWif,
-		tokenReceiveAddress,
+		tokenReceiveAddress: defaultTokenReceiveAddress,
 		bidExpiration,
 		defaultLoopTime,
 		defaultCounterLoopTime,
 	} = useSettingsState();
 	const { bidStates, startAll, stopAll, startBid, stopBid } =
 		useBidStateStore();
-	const { collections } = useCollectionsState();
+	const { collections, removeCollection, addCollection, editCollection } =
+		useCollectionsState();
+	const { wallets } = useAccountState();
+
+	const [isOrdinalAddress, setIsOrdinalAddress] = useState(false);
+	const [openDropDown, setOpenDropdown] = useState(false);
+	const [selectedWallet, setSelectedWallet] = useState("");
 
 	const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
 	const [data, setData] = useState<BidState[]>([]);
+	const [editIndex, setEditIndex] = useState<number | null>(null);
+
+	const [isOpen, setIsOpen] = useState(false);
+	const [collectionDetails, setCollectionDetails] = useState({
+		floorPrice: 0,
+		symbol: "",
+	});
+
+	const [formState, setFormState] = useState<CollectionData>({
+		collectionSymbol: "",
+		minBid: 0,
+		maxBid: 0,
+		minFloorBid: 50,
+		maxFloorBid: 75,
+		outBidMargin: 1e-6,
+		bidCount: 10,
+		duration: 10,
+		fundingWalletWIF: "",
+		tokenReceiveAddress: "",
+		scheduledLoop: 600,
+		counterbidLoop: 600,
+		floorPrice: 0,
+	});
 
 	const handleSelectAllBidsChange = (
 		event: React.ChangeEvent<HTMLInputElement>
@@ -29,6 +64,10 @@ export default function Home() {
 				? bidStates.map((bidState) => bidState.collectionSymbol)
 				: []
 		);
+	};
+
+	const toggleDropdown = () => {
+		setOpenDropdown(!openDropDown);
 	};
 
 	const handleBidCheckboxChange = (collectionSymbol: string) => {
@@ -68,7 +107,7 @@ export default function Home() {
 				bidCount: collection.bidCount,
 				fundingWalletWIF: collection.fundingWalletWIF || fundingWif,
 				tokenReceiveAddress:
-					collection.tokenReceiveAddress || tokenReceiveAddress,
+					collection.tokenReceiveAddress || defaultTokenReceiveAddress,
 				duration: collection.duration || bidExpiration,
 				scheduledLoop: collection.scheduledLoop || defaultLoopTime,
 				counterbidLoop: collection.counterbidLoop || defaultCounterLoopTime,
@@ -79,36 +118,515 @@ export default function Home() {
 		collections,
 		bidStates,
 		fundingWif,
-		tokenReceiveAddress,
+		defaultTokenReceiveAddress,
 		bidExpiration,
 		defaultLoopTime,
 		defaultCounterLoopTime,
 	]);
 
-	console.log({ combinedCollections });
+	function handleClose() {
+		setIsOpen(false);
+
+		setFormState({
+			collectionSymbol: "",
+			minBid: 0,
+			maxBid: 0,
+			minFloorBid: 50,
+			maxFloorBid: 75,
+			outBidMargin: 1e-6,
+			bidCount: 10,
+			duration: 10,
+			fundingWalletWIF: "",
+			tokenReceiveAddress: "",
+			scheduledLoop: 600,
+			counterbidLoop: 600,
+		});
+		setEditIndex(null);
+
+		setIsOrdinalAddress(false);
+		setCollectionDetails({
+			symbol: "",
+			floorPrice: 0,
+		});
+	}
+
+	const handleInputChange = (
+		e: React.ChangeEvent<HTMLInputElement>,
+		field: keyof CollectionData
+	) => {
+		const value = e.target.value;
+		setFormState((prevState) => ({
+			...prevState,
+			[field]: value,
+		}));
+	};
+
+	const handleNumberInputChange = (
+		e: React.ChangeEvent<HTMLInputElement>,
+		field: keyof CollectionData
+	) => {
+		const value = e.target.value;
+		if (value === "" || (Number(value) >= 0 && Number(value) < Infinity)) {
+			setFormState((prevState) => ({
+				...prevState,
+				[field]: value,
+			}));
+		}
+	};
+
+	const handleWalletChange = (address: string) => {
+		const foundWallet = wallets.find(
+			(item) => item.address.toLowerCase() === address.toLowerCase()
+		);
+
+		if (foundWallet) {
+			setFormState((prev) => ({
+				...prev,
+				fundingWalletWIF: foundWallet.privateKey,
+			}));
+
+			setSelectedWallet(address);
+		}
+		setSelectedWallet(address);
+		setOpenDropdown(false);
+	};
+
+	const handleAddCollection = () => {
+		if (!collectionDetails.symbol || !collectionDetails.floorPrice) {
+			toast.error("Please enter a valid collection symbol.");
+			return;
+		}
+
+		if (!isOrdinalAddress && !defaultTokenReceiveAddress) {
+			toast.error("Please enter a valid ordinal address.");
+			return;
+		}
+
+		if (editIndex !== null) {
+			editCollection(editIndex, formState);
+		} else {
+			addCollection(formState);
+		}
+
+		setFormState({
+			collectionSymbol: "",
+			minBid: 0,
+			maxBid: 0,
+			minFloorBid: 50,
+			maxFloorBid: 75,
+			outBidMargin: 1e-6,
+			bidCount: 10,
+			duration: 10,
+			fundingWalletWIF: "",
+			tokenReceiveAddress: "",
+			scheduledLoop: 600,
+			counterbidLoop: 600,
+		});
+		setEditIndex(null);
+		setIsOpen(false);
+
+		setIsOrdinalAddress(false);
+		setCollectionDetails({
+			symbol: "",
+			floorPrice: 0,
+		});
+	};
+
+	const onEdit = (index: number) => {
+		setEditIndex(index);
+		const collectionToEdit = collections[index];
+		setFormState(collectionToEdit);
+		setIsOpen(true);
+	};
+
+	const handleRemoveCollection = (index: number) => {
+		removeCollection(index);
+	};
+
+	useEffect(() => {
+		async function getCollection() {
+			try {
+				const response = await fetch("/api/collection/validate", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						collectionSymbol: formState.collectionSymbol,
+						apiKey,
+					}),
+				});
+
+				if (!response.ok) {
+					throw new Error("Network response was not ok");
+				}
+
+				const collection = await response.json();
+
+				setCollectionDetails({
+					symbol: collection.symbol,
+					floorPrice: Number((+collection.floorPrice / 1e8).toFixed(9)),
+				});
+
+				if (formState.minBid === 0 || formState.maxBid === 0) {
+					setFormState((prev) => ({
+						...prev,
+						minBid: (+collection.floorPrice / 1e8) * 0.5,
+						maxBid: +collection.floorPrice / 1e8,
+						floorPrice: Number((+collection.floorPrice / 1e8).toFixed(9)),
+					}));
+				}
+			} catch (error) {
+				console.error(error);
+			}
+		}
+
+		if (apiKey && formState.collectionSymbol) {
+			getCollection();
+		}
+	}, [apiKey, formState.collectionSymbol]);
+
+	useEffect(() => {
+		async function validateAddress() {
+			try {
+				const response = await fetch(
+					`/api/account/validate?address=${formState.tokenReceiveAddress}`
+				);
+
+				if (!response.ok) {
+					throw new Error("Network response was not ok");
+				}
+				const isOrdinalAddress = await response.json();
+
+				setIsOrdinalAddress(isOrdinalAddress);
+			} catch (error) {
+				console.error(error);
+			}
+		}
+
+		if (formState.tokenReceiveAddress) {
+			validateAddress();
+		}
+	}, [formState.tokenReceiveAddress]);
 
 	return (
 		<div className='py-[30px] px-[40px]'>
+			{isOpen && (
+				<div className='fixed inset-0 flex items-center justify-center z-50'>
+					<div className='mt-6 w-[768px] border border-[#343B4F] rounded-xl p-8 bg-[#0b1739]'>
+						<div className='flex justify-between items-center'>
+							<h2 className='text-xl font-semibold text-white'>
+								{editIndex !== null ? "Edit Collection" : "Add New Collection"}
+							</h2>
+
+							<button
+								className='text-white hover:text-gray-300'
+								onClick={handleClose}>
+								<svg
+									xmlns='http://www.w3.org/2000/svg'
+									className='h-6 w-6'
+									fill='none'
+									viewBox='0 0 24 24'
+									stroke='currentColor'>
+									<path
+										strokeLinecap='round'
+										strokeLinejoin='round'
+										strokeWidth={2}
+										d='M6 18L18 6M6 6l12 12'
+									/>
+								</svg>
+							</button>
+						</div>
+						{!apiKey ? (
+							<span className='bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded'>
+								NFT TOOLS API KEY not set, please add key in &nbsp;
+								<Link href='/settings' className='underline'>
+									settings
+								</Link>
+								&nbsp; to verify your collections
+							</span>
+						) : null}
+						<div className='mt-6'>
+							<label
+								htmlFor='collection_symbol'
+								className='mb-2 text-sm font-medium text-white flex gap-2 items-center'>
+								COLLECTION SYMBOL
+								{collectionDetails.symbol && collectionDetails.floorPrice ? (
+									<CheckIcon />
+								) : null}
+							</label>
+							<input
+								type='text'
+								id='collection_symbol'
+								className='p-[14px] bg-transparent border border-[#343B4F] w-full rounded text-white'
+								placeholder=''
+								value={formState.collectionSymbol}
+								onChange={(e) => handleInputChange(e, "collectionSymbol")}
+								required
+								disabled={!apiKey}
+							/>
+						</div>
+						<div className='mt-6'>
+							<label
+								htmlFor='token_receive_address'
+								className='mb-2 text-sm font-medium text-white flex gap-2'>
+								TOKEN RECEIVE ADDRESS (ordinal address)
+								{isOrdinalAddress ? <CheckIcon /> : null}
+							</label>
+							<input
+								type='text'
+								id='token_receive_address'
+								className='p-[14px] bg-transparent border border-[#343B4F] w-full rounded text-white'
+								placeholder=''
+								value={formState.tokenReceiveAddress}
+								onChange={(e) => handleInputChange(e, "tokenReceiveAddress")}
+							/>
+
+							{formState.tokenReceiveAddress && !isOrdinalAddress ? (
+								<span className='bg-yellow-100 text-yellow-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-yellow-900 dark:text-yellow-300'>
+									⚠️ This address is not a valid ordinal address
+								</span>
+							) : null}
+						</div>
+						<div className='mt-6 relative'>
+							<label
+								htmlFor='funding_wif'
+								className='block mb-2 text-sm font-medium text-white'>
+								FUNDING WIF
+							</label>
+							<div className='relative'>
+								<button
+									type='button'
+									className='p-[14px] bg-transparent border border-[#343B4F] w-full rounded text-white flex items-center justify-between'
+									onClick={toggleDropdown}>
+									<span
+										className={selectedWallet ? "text-white" : "text-gray-400"}>
+										{selectedWallet
+											? wallets.find(
+													(wallet) => wallet.address === selectedWallet
+											  )?.address
+											: "Select a wallet"}
+									</span>
+									<ChevronDownIcon
+										className={`w-5 h-5 ml-2 transition-transform ${
+											openDropDown ? "transform rotate-180" : ""
+										}`}
+									/>
+								</button>
+								{openDropDown && (
+									<div className='absolute z-10 w-full bg-[#1A2342] border border-[#343B4F] rounded shadow-lg mt-1'>
+										{wallets.map((wallet, index) => (
+											<div
+												key={index}
+												className={`p-[14px] text-white cursor-pointer hover:bg-[#343B4F] ${
+													selectedWallet === wallet.privateKey
+														? "bg-[#343B4F]"
+														: ""
+												}`}
+												onClick={() => handleWalletChange(wallet.address)}>
+												{wallet.address}
+											</div>
+										))}
+									</div>
+								)}
+							</div>
+							<div className='mt-2'>
+								<Link href='/accounts' className='text-white underline'>
+									Add a new key
+								</Link>
+							</div>
+						</div>
+
+						<DualRangeSlider
+							setFormState={setFormState}
+							formState={formState}
+							floorPrice={collectionDetails.floorPrice}
+						/>
+
+						<div className='mt-6 flex space-x-4'>
+							<div>
+								<label
+									htmlFor='min_bid'
+									className='block mb-2 text-sm font-medium text-white'>
+									MIN BID <span className='text-[#998ca6]'>(BTC)</span>
+								</label>
+								<input
+									type='number'
+									id='min_bid'
+									className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+									placeholder={
+										collectionDetails.floorPrice && formState.minBid === 0
+											? (collectionDetails.floorPrice * 0.5).toString()
+											: formState.minBid > 0
+											? formState.minBid.toString()
+											: ""
+									}
+									inputMode='numeric'
+									value={formState.minBid}
+									onChange={(e) => handleNumberInputChange(e, "minBid")}
+									required
+								/>
+							</div>
+							<div>
+								<label
+									htmlFor='max_bid'
+									className='block mb-2 text-sm font-medium text-white'>
+									MAX BID <span className='text-[#998ca6]'>(BTC)</span>
+								</label>
+								<input
+									type='number'
+									id='max_bid'
+									className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+									placeholder=''
+									inputMode='numeric'
+									value={formState.maxBid}
+									onChange={(e) => handleNumberInputChange(e, "maxBid")}
+									required
+								/>
+							</div>
+						</div>
+
+						<div className='mt-6 flex space-x-4'>
+							<div>
+								<label
+									htmlFor='scheduled_loop'
+									className='block mb-2 text-sm font-medium text-white'>
+									SCHEDULED LOOP{" "}
+									<span className='text-[#998ca6]'>(seconds)</span>
+								</label>
+								<input
+									type='number'
+									id='scheduled_loop'
+									className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+									placeholder=''
+									inputMode='numeric'
+									value={formState.scheduledLoop}
+									onChange={(e) => handleNumberInputChange(e, "scheduledLoop")}
+								/>
+							</div>
+							<div>
+								<label
+									htmlFor='counterbid_loop'
+									className='block mb-2 text-sm font-medium text-white'>
+									COUNTERBID LOOP{" "}
+									<span className='text-[#998ca6]'>(seconds)</span>
+								</label>
+								<input
+									type='number'
+									id='counterbid_loop'
+									className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+									placeholder=''
+									inputMode='numeric'
+									value={formState.counterbidLoop}
+									onChange={(e) => handleNumberInputChange(e, "counterbidLoop")}
+								/>
+							</div>
+						</div>
+						<div className='mt-6 flex space-x-4'>
+							<div>
+								<label
+									htmlFor='out_bid_margin'
+									className='block mb-2 text-sm font-medium text-white'>
+									OUT BID MARGIN <span className='text-[#998ca6]'>(BTC)</span>
+								</label>
+								<input
+									type='number'
+									id='out_bid_margin'
+									className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+									placeholder=''
+									inputMode='numeric'
+									value={formState.outBidMargin}
+									onChange={(e) => handleNumberInputChange(e, "outBidMargin")}
+									required
+								/>
+							</div>
+							<div>
+								<label
+									htmlFor='bid_count'
+									className='block mb-2 text-sm font-medium text-white'>
+									BID COUNT
+								</label>
+								<input
+									type='number'
+									id='bid_count'
+									className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+									placeholder=''
+									inputMode='numeric'
+									value={formState.bidCount}
+									onChange={(e) => handleNumberInputChange(e, "bidCount")}
+									required
+								/>
+							</div>
+							<div>
+								<label
+									htmlFor='duration'
+									className='block mb-2 text-sm font-medium text-white'>
+									DURATION <span className='text-[#998ca6]'>(minutes)</span>
+								</label>
+								<input
+									type='number'
+									id='duration'
+									className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+									placeholder=''
+									inputMode='numeric'
+									value={formState.duration}
+									onChange={(e) => handleNumberInputChange(e, "duration")}
+									required
+								/>
+							</div>
+						</div>
+
+						<div className='flex justify-end mt-6'>
+							<button
+								className={`py-[14px] w-[180px] font-semibold text-sm rounded 
+    ${
+			!collectionDetails.symbol ||
+			!collectionDetails.floorPrice ||
+			(!isOrdinalAddress && !defaultTokenReceiveAddress)
+				? "bg-gray-400 cursor-not-allowed w-[140px] text-white font-medium text-xs py-2 px-4 rounded"
+				: "bg-[#CB3CFF] w-[140px] text-white font-medium text-xs py-2 px-4 rounded"
+		}
+  `}
+								onClick={handleAddCollection}
+								disabled={
+									!collectionDetails.symbol ||
+									!collectionDetails.floorPrice ||
+									(!isOrdinalAddress && !defaultTokenReceiveAddress)
+								}>
+								{editIndex !== null ? "SAVE" : "ADD"}
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 			<h2 className='text-white text-[20px] font-semibold'>My Activity</h2>
 			<p className='mt-2 text-[14px] font-medium text-[#AEB9E1]'>
 				You have {collections.length} collection(s) to bid on
 			</p>
 
 			<div className='mt-6'>
-				<div className='flex justify-end gap-2 mb-6'>
+				<div className='flex justify-between gap-2 mb-6'>
 					<button
-						className='bg-[#CB3CFF] w-[140px] text-white font-medium text-xs py-2 px-4 rounded'
-						onClick={() => startAll(selectedCollections)}>
-						Start
+						className='bg-[#CB3CFF] text-white font-medium text-xs py-2 px-4 rounded flex gap-2 w-[140px] justify-evenly'
+						onClick={() => setIsOpen(true)}>
+						Add New Task
+						<PlusIcon />
 					</button>
-					<button
-						className='bg-red-500 w-[140px] text-white font-medium text-xs py-2 px-4 rounded'
-						onClick={() => stopAll(selectedCollections)}>
-						Stop
-					</button>
+					<div className='flex gap-2'>
+						<button
+							className='bg-[#CB3CFF] w-[140px] text-white font-medium text-xs py-2 px-4 rounded'
+							onClick={() => startAll(selectedCollections)}>
+							Start
+						</button>
+						<button
+							className='bg-red-500 w-[140px] text-white font-medium text-xs py-2 px-4 rounded'
+							onClick={() => stopAll(selectedCollections)}>
+							Stop
+						</button>
+					</div>
 				</div>
 				<div className='relative overflow-x-auto shadow-md'>
-					<table className='w-full text-sm text-left text-white border border-[#343B4F] rounded-lg'>
+					<table className='w-full text-xs text-left text-white border border-[#343B4F] rounded-lg'>
 						<thead className='text-xs bg-[#0A1330]'>
 							<tr>
 								<th scope='col' className='p-4'>
@@ -130,19 +648,19 @@ export default function Home() {
 									Collection Symbol
 								</th>
 								<th scope='col' className='px-6 py-5'>
-									Min Bid <span className='text-[#998ca6]'>BTC</span>
+									Min Bid
 								</th>
 								<th scope='col' className='px-6 py-5'>
-									Max Bid <span className='text-[#998ca6]'>BTC</span>
+									Max Bid
 								</th>
 								<th scope='col' className='px-6 py-5'>
-									Min Floor Bid <span className='text-[#998ca6]'>%</span>
+									Min Floor Bid
 								</th>
 								<th scope='col' className='px-6 py-5'>
-									Max Floor Bid <span className='text-[#998ca6]'>%</span>
+									Max Floor Bid
 								</th>
 								<th scope='col' className='px-6 py-5'>
-									Outbid Margin <span className='text-[#998ca6]'>BTC</span>
+									Outbid Margin
 								</th>
 								<th scope='col' className='px-6 py-5'>
 									Bid Count
@@ -236,6 +754,17 @@ export default function Home() {
 												}}>
 												{bidState.running ? "Stop" : "Start"}
 											</button>
+
+											<button
+												onClick={() => onEdit(index)}
+												className='font-medium text-blue-600 dark:text-blue-500 hover:underline ms-3'>
+												Edit
+											</button>
+											<button
+												onClick={() => handleRemoveCollection(index)}
+												className='font-medium text-red-600 dark:text-red-500 hover:underline ms-3'>
+												Remove
+											</button>
 										</td>
 									</tr>
 								))
@@ -250,4 +779,20 @@ export default function Home() {
 			</div>
 		</div>
 	);
+}
+
+export interface CollectionData {
+	collectionSymbol: string;
+	minBid: number;
+	maxBid: number;
+	minFloorBid: number;
+	maxFloorBid: number;
+	outBidMargin: number;
+	bidCount: number;
+	duration: number;
+	fundingWalletWIF?: string;
+	tokenReceiveAddress?: string;
+	scheduledLoop?: number;
+	counterbidLoop?: number;
+	floorPrice?: number;
 }
