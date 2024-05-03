@@ -27,6 +27,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 			);
 			return {
 				collectionSymbol: collection.collectionSymbol,
+				offerType: collection.offerType,
 				minBid: collection.minBid,
 				maxBid: collection.maxBid,
 				minFloorBid: collection.minFloorBid,

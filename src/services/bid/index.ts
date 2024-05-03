@@ -46,6 +46,7 @@ export async function processScheduledLoop(item: BidData, queue: PQueue<any, Que
 
     if (!bidHistory[collectionSymbol]) {
       bidHistory[collectionSymbol] = {
+        offerType: "ITEM",
         topOffers: {},
         ourBids: {},
         topBids: {},
@@ -61,6 +62,7 @@ export async function processScheduledLoop(item: BidData, queue: PQueue<any, Que
         offers.forEach((item) => {
           if (!bidHistory[item.token.collectionSymbol]) {
             bidHistory[item.token.collectionSymbol] = {
+              offerType: "ITEM",
               topOffers: {},
               ourBids: {},
               topBids: {},

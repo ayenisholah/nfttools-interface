@@ -30,6 +30,9 @@ export default function Home() {
 	const [openDropDown, setOpenDropdown] = useState(false);
 	const [selectedWallet, setSelectedWallet] = useState("");
 
+	const [offerType, setOfferType] = useState<"ITEM" | "COLLECTION">("ITEM");
+	const [openOfferTypeDropdown, setOpenOfferTypeDropdown] = useState(false);
+
 	const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
 	const [data, setData] = useState<BidState[]>([]);
 	const [editIndex, setEditIndex] = useState<number | null>(null);
@@ -54,6 +57,7 @@ export default function Home() {
 		scheduledLoop: 600,
 		counterbidLoop: 600,
 		floorPrice: 0,
+		offerType: "ITEM",
 	});
 
 	const handleSelectAllBidsChange = (
@@ -99,6 +103,7 @@ export default function Home() {
 
 			return {
 				collectionSymbol: collection.collectionSymbol,
+				offerType: collection.offerType,
 				minBid: collection.minBid,
 				maxBid: collection.maxBid,
 				minFloorBid: collection.minFloorBid,
@@ -140,6 +145,7 @@ export default function Home() {
 			tokenReceiveAddress: "",
 			scheduledLoop: 600,
 			counterbidLoop: 600,
+			offerType: "ITEM",
 		});
 		setEditIndex(null);
 
@@ -221,6 +227,7 @@ export default function Home() {
 			tokenReceiveAddress: "",
 			scheduledLoop: 600,
 			counterbidLoop: 600,
+			offerType: "ITEM",
 		});
 		setEditIndex(null);
 		setIsOpen(false);
@@ -309,6 +316,19 @@ export default function Home() {
 		}
 	}, [formState.tokenReceiveAddress]);
 
+	const toggleOfferTypeDropdown = () => {
+		setOpenOfferTypeDropdown(!openOfferTypeDropdown);
+	};
+
+	const handleOfferTypeChange = (type: "ITEM" | "COLLECTION") => {
+		setOfferType(type);
+		setOpenOfferTypeDropdown(false);
+		setFormState((prevState) => ({
+			...prevState,
+			offerType: type,
+		}));
+	};
+
 	return (
 		<div className='py-[30px] px-[40px]'>
 			{isOpen && (
@@ -365,6 +385,45 @@ export default function Home() {
 								required
 								disabled={!apiKey}
 							/>
+						</div>
+
+						<div className='mt-6 relative'>
+							<label
+								htmlFor='offer_type'
+								className='block mb-2 text-sm font-medium text-white'>
+								OFFER TYPE
+							</label>
+							<div className='relative'>
+								<button
+									type='button'
+									className='p-[14px] bg-transparent border border-[#343B4F] w-full rounded text-white flex items-center justify-between'
+									onClick={toggleOfferTypeDropdown}>
+									<span className='text-white'>{offerType}</span>
+									<ChevronDownIcon
+										className={`w-5 h-5 ml-2 transition-transform ${
+											openOfferTypeDropdown ? "transform rotate-180" : ""
+										}`}
+									/>
+								</button>
+								{openOfferTypeDropdown && (
+									<div className='absolute z-10 w-full bg-[#1A2342] border border-[#343B4F] rounded shadow-lg mt-1'>
+										<div
+											className={`p-[14px] text-white cursor-pointer hover:bg-[#343B4F] ${
+												offerType === "ITEM" ? "bg-[#343B4F]" : ""
+											}`}
+											onClick={() => handleOfferTypeChange("ITEM")}>
+											ITEM
+										</div>
+										<div
+											className={`p-[14px] text-white cursor-pointer hover:bg-[#343B4F] ${
+												offerType === "COLLECTION" ? "bg-[#343B4F]" : ""
+											}`}
+											onClick={() => handleOfferTypeChange("COLLECTION")}>
+											COLLECTION
+										</div>
+									</div>
+								)}
+							</div>
 						</div>
 						<div className='mt-6'>
 							<label
@@ -790,6 +849,7 @@ export interface CollectionData {
 	outBidMargin: number;
 	bidCount: number;
 	duration: number;
+	offerType: "ITEM" | "COLLECTION";
 	fundingWalletWIF?: string;
 	tokenReceiveAddress?: string;
 	scheduledLoop?: number;

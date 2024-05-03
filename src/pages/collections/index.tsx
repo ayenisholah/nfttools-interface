@@ -9,13 +9,16 @@ import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
-const CollectionForm: React.FC = () => {
+const Collection: React.FC = () => {
 	const [isOpen, setIsOpen] = useState(false);
 	const [openDropDown, setOpenDropdown] = useState(false);
 	const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
 	const [isOrdinalAddress, setIsOrdinalAddress] = useState(false);
 	const { wallets } = useAccountState();
 	const [editIndex, setEditIndex] = useState<number | null>(null);
+	const [offerType, setOfferType] = useState<"ITEM" | "COLLECTION">("ITEM");
+	const [openOfferTypeDropdown, setOpenOfferTypeDropdown] = useState(false);
+
 	const [collectionDetails, setCollectionDetails] = useState({
 		floorPrice: 0,
 		symbol: "",
@@ -40,6 +43,7 @@ const CollectionForm: React.FC = () => {
 		scheduledLoop: 600,
 		counterbidLoop: 600,
 		floorPrice: 0,
+		offerType: "ITEM",
 	});
 
 	const handleSelectAllChange = (
@@ -128,6 +132,7 @@ const CollectionForm: React.FC = () => {
 			tokenReceiveAddress: "",
 			scheduledLoop: 600,
 			counterbidLoop: 600,
+			offerType: "ITEM",
 		});
 		setEditIndex(null);
 		setIsOpen(false);
@@ -155,6 +160,7 @@ const CollectionForm: React.FC = () => {
 			tokenReceiveAddress: "",
 			scheduledLoop: 600,
 			counterbidLoop: 600,
+			offerType: "ITEM",
 		});
 		setEditIndex(null);
 
@@ -257,6 +263,19 @@ const CollectionForm: React.FC = () => {
 		}
 		setSelectedWallet(address);
 		setOpenDropdown(false);
+	};
+
+	const toggleOfferTypeDropdown = () => {
+		setOpenOfferTypeDropdown(!openOfferTypeDropdown);
+	};
+
+	const handleOfferTypeChange = (type: "ITEM" | "COLLECTION") => {
+		setOfferType(type);
+		setOpenOfferTypeDropdown(false);
+		setFormState((prevState) => ({
+			...prevState,
+			offerType: type,
+		}));
 	};
 
 	return (
@@ -479,6 +498,45 @@ const CollectionForm: React.FC = () => {
 									required
 									disabled={!apiKey}
 								/>
+							</div>
+
+							<div className='mt-6 relative'>
+								<label
+									htmlFor='offer_type'
+									className='block mb-2 text-sm font-medium text-white'>
+									OFFER TYPE
+								</label>
+								<div className='relative'>
+									<button
+										type='button'
+										className='p-[14px] bg-transparent border border-[#343B4F] w-full rounded text-white flex items-center justify-between'
+										onClick={toggleOfferTypeDropdown}>
+										<span className='text-white'>{offerType}</span>
+										<ChevronDownIcon
+											className={`w-5 h-5 ml-2 transition-transform ${
+												openOfferTypeDropdown ? "transform rotate-180" : ""
+											}`}
+										/>
+									</button>
+									{openOfferTypeDropdown && (
+										<div className='absolute z-10 w-full bg-[#1A2342] border border-[#343B4F] rounded shadow-lg mt-1'>
+											<div
+												className={`p-[14px] text-white cursor-pointer hover:bg-[#343B4F] ${
+													offerType === "ITEM" ? "bg-[#343B4F]" : ""
+												}`}
+												onClick={() => handleOfferTypeChange("ITEM")}>
+												ITEM
+											</div>
+											<div
+												className={`p-[14px] text-white cursor-pointer hover:bg-[#343B4F] ${
+													offerType === "COLLECTION" ? "bg-[#343B4F]" : ""
+												}`}
+												onClick={() => handleOfferTypeChange("COLLECTION")}>
+												COLLECTION
+											</div>
+										</div>
+									)}
+								</div>
 							</div>
 							<div className='mt-6'>
 								<label
@@ -724,7 +782,7 @@ const CollectionForm: React.FC = () => {
 	);
 };
 
-export default CollectionForm;
+export default Collection;
 
 export interface CollectionData {
 	collectionSymbol: string;
@@ -735,6 +793,7 @@ export interface CollectionData {
 	outBidMargin: number;
 	bidCount: number;
 	duration: number;
+	offerType: "ITEM" | "COLLECTION";
 	fundingWalletWIF?: string;
 	tokenReceiveAddress?: string;
 	scheduledLoop?: number;

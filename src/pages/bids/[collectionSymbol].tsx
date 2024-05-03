@@ -65,7 +65,8 @@ const CollectionBid = () => {
 		async function fetchOffers() {
 			try {
 				const tokenReceiveAddress = rowData.tokenReceiveAddress;
-				const url = `/api/offers?requestType=getCollectionOffers&tokenReceiveAddress=${tokenReceiveAddress}&collectionSymbol=${collectionSymbol}&apiKey=${apiKey}`;
+				const offerType = rowData.offerType;
+				const url = `/api/offers?requestType=getCollectionOffers&tokenReceiveAddress=${tokenReceiveAddress}&collectionSymbol=${collectionSymbol}&apiKey=${apiKey}&offerType=${offerType}`;
 				const response = await fetch(url.toString(), {
 					method: "GET",
 					headers: {
@@ -144,6 +145,9 @@ const CollectionBid = () => {
 			{rowData && (
 				<div key={rowData.collectionSymbol} className='mb-6'>
 					<div className='flex flex-wrap gap-3 text-xs'>
+						<div className='bg-purple-600 text-white px-3 py-2 rounded'>
+							Bid Type: {rowData.offerType}
+						</div>
 						<div className='bg-purple-600 text-white px-3 py-2 rounded'>
 							Min Bid: {rowData.minBid}
 						</div>

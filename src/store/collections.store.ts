@@ -15,11 +15,13 @@ export interface CollectionData {
   outBidMargin: number;
   bidCount: number;
   duration: number;
+  offerType: 'ITEM' | 'COLLECTION';
   fundingWalletWIF?: string;
   tokenReceiveAddress?: string;
   scheduledLoop?: number;
   counterbidLoop?: number;
 }
+
 
 interface CollectionsState {
   collections: CollectionData[];

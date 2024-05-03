@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { IOffer, getUserOffers, retrieveCancelOfferFormat, signData, submitCancelOfferData } from "@/services/offers";
+import { IOffer, getBestCollectionOffer, getUserOffers, retrieveCancelOfferFormat, signData, submitCancelOfferData } from "@/services/offers";
 import { bidHistory } from "../bid";
 
 
@@ -10,12 +10,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { requestType } = req.query
 
       if (requestType === "getCollectionOffers") {
-        const { tokenReceiveAddress, collectionSymbol, apiKey } = req.query as unknown as FetchOffersQuery
+        const { tokenReceiveAddress, collectionSymbol, apiKey, offerType } = req.query as unknown as FetchOffersQuery
 
-        const offerData = await getUserOffers(tokenReceiveAddress, apiKey)
-        const offers = offerData?.offers.filter((item) => item.token.collectionSymbol === collectionSymbol)
+        if (offerType === "ITEM") {
+          const offerData = await getUserOffers(tokenReceiveAddress, apiKey)
+          const offers = offerData?.offers.filter((item) => item.token.collectionSymbol === collectionSymbol)
 
-        res.status(200).json(offers)
+          res.status(200).json(offers)
+
+        } else if (offerType === "COLLECTION") {
+          const offerData = await getBestCollectionOffer(collectionSymbol, apiKey)
+          const offers = offerData?.offers.filter((item) => item.btcParams.makerOrdinalReceiveAddress.toLowerCase() === tokenReceiveAddress.toLowerCase())
+          res.status(200).json(offers)
+        }
       }
     } else if (req.method === "POST") {
 
@@ -63,6 +70,7 @@ interface ICancelOffer {
   collection: string;
 }
 interface FetchOffersQuery {
+  offerType: "ITEM" | "COLLECTION";
   requestType: string;
   tokenReceiveAddress: string;
   collectionSymbol: string;

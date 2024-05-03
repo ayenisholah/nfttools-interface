@@ -5,7 +5,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import PQueue from "p-queue"
 import tinysecp from '@bitcoinerlab/secp256k1'
 import { collectionDetails } from "@/services/collections";
-import { createOffer, getBestOffer, getOffers, getUserOffers, signData, submitSignedOfferOrder } from "@/services/offers";
+import { ICollectionOffer, cancelCollectionOffer, createCollectionOffer, createOffer, getBestCollectionOffer, getBestOffer, getOffers, getUserOffers, signCollectionOffer, signData, submitCollectionOffer, submitSignedOfferOrder } from "@/services/offers";
 import { retrieveTokens } from "@/services/tokens";
 import { cancelBid } from "@/services/bid/cancel";
 import { getBitcoinBalance } from "@/services/balance";
@@ -22,10 +22,11 @@ const runningState: { [collectionSymbol: string]: boolean } = {};
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method === 'POST') {
-      const { rateLimit, apiKey, tokenReceiveAddress, fundingWalletWIF, duration, bidCount, outBidMargin, maxFloorBid, minFloorBid, maxBid, minBid, collectionSymbol } = req.body.data as BidData
+      const { rateLimit, apiKey, tokenReceiveAddress, fundingWalletWIF, duration, bidCount, outBidMargin, maxFloorBid, minFloorBid, maxBid, minBid, collectionSymbol, offerType } = req.body.data as BidData
 
-      // instantiate limiter here
+      const feeSatsPerVbyte = 28
 
+      console.log({ offerType });
       if (req.body.data.running !== undefined) {
         runningState[collectionSymbol] = req.body.data.running;
       }
@@ -58,6 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
           if (!bidHistory[collectionSymbol]) {
             bidHistory[collectionSymbol] = {
+              offerType: "ITEM",
               topOffers: {},
               ourBids: {},
               topBids: {},
@@ -72,6 +74,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             offers.forEach((item) => {
               if (!bidHistory[item.token.collectionSymbol]) {
                 bidHistory[item.token.collectionSymbol] = {
+                  offerType: "ITEM",
                   topOffers: {},
                   ourBids: {},
                   topBids: {},
@@ -181,43 +184,71 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             )
           }
 
-          await queue.addAll(
-            bottomListings.map(token => async () => {
-              const { id: tokenId, price: listedPrice } = token
 
-              const bestOffer = await getBestOffer(tokenId, apiKey);
-              const ourExistingOffer = bidHistory[collectionSymbol].ourBids[tokenId]?.expiration > Date.now()
-              const currentBidCount = Object.values(bidHistory[collectionSymbol].topBids).length;
+          if (offerType === "ITEM") {
+            await queue.addAll(
+              bottomListings.map(token => async () => {
+                const { id: tokenId, price: listedPrice } = token
 
-              const currentExpiry = bidHistory[collectionSymbol]?.ourBids[tokenId]?.expiration
-              const newExpiry = duration * 60 * 1000
+                const bestOffer = await getBestOffer(tokenId, apiKey);
+                const ourExistingOffer = bidHistory[collectionSymbol].ourBids[tokenId]?.expiration > Date.now()
+                const currentBidCount = Object.values(bidHistory[collectionSymbol].topBids).length;
 
-              if (currentExpiry - Date.now() > newExpiry) {
-                const offerData = await getOffers(tokenId, apiKey, tokenReceiveAddress)
-                const offer = offerData?.offers[0]
+                const currentExpiry = bidHistory[collectionSymbol]?.ourBids[tokenId]?.expiration
+                const newExpiry = duration * 60 * 1000
 
-                if (offer) {
-                  await cancelBid(offer, privateKey, collectionSymbol, tokenId, buyerPaymentAddress, apiKey)
+                if (currentExpiry - Date.now() > newExpiry) {
+                  const offerData = await getOffers(tokenId, apiKey, tokenReceiveAddress)
+                  const offer = offerData?.offers[0]
+
+                  if (offer) {
+                    await cancelBid(offer, privateKey, collectionSymbol, tokenId, buyerPaymentAddress, apiKey)
+                  }
+                  delete bidHistory[collectionSymbol].ourBids[tokenId]
+                  delete bidHistory[collectionSymbol].topBids[tokenId]
                 }
-                delete bidHistory[collectionSymbol].ourBids[tokenId]
-                delete bidHistory[collectionSymbol].topBids[tokenId]
-              }
 
-              if (!ourExistingOffer) {
+                if (!ourExistingOffer) {
 
-                if (bestOffer && Number(bestOffer.total) > 0) {
-                  const topOffer = bestOffer.offers[0]
-                  if (topOffer.buyerPaymentAddress !== buyerPaymentAddress) {
-                    const currentPrice = topOffer.price
-                    const bidPrice = currentPrice + (outBidMargin * CONVERSION_RATE)
+                  if (bestOffer && Number(bestOffer.total) > 0) {
+                    const topOffer = bestOffer.offers[0]
+                    if (topOffer.buyerPaymentAddress !== buyerPaymentAddress) {
+                      const currentPrice = topOffer.price
+                      const bidPrice = currentPrice + (outBidMargin * CONVERSION_RATE)
+                      if (bidPrice <= maxOffer) {
+                        console.log('-----------------------------------------------------------------------------------------------------------------------------');
+                        console.log(`OUTBID CURRENT OFFER ${currentPrice} OUR OFFER ${bidPrice} FOR ${collectionSymbol} ${tokenId}`);
+                        console.log('-----------------------------------------------------------------------------------------------------------------------------');
+
+                        try {
+                          const status = await placeBid(tokenId, bidPrice, expiration, tokenReceiveAddress, buyerPaymentAddress, publicKey, privateKey, collectionSymbol, apiKey)
+
+                          if (status === true) {
+                            bidHistory[collectionSymbol].topBids[tokenId] = true
+                            bidHistory[collectionSymbol].ourBids[tokenId] = {
+                              price: bidPrice,
+                              expiration: expiration
+                            }
+                          }
+                        } catch (error) {
+                          console.log(error);
+                        }
+                      } else {
+                        console.log('-----------------------------------------------------------------------------------------------------------------------------');
+                        console.log(`CALCULATED BID PRICE ${bidPrice} IS GREATER THAN MAX BID ${maxOffer} FOR ${collectionSymbol} ${tokenId}`);
+                        console.log('-----------------------------------------------------------------------------------------------------------------------------');
+                        delete bidHistory[collectionSymbol].topBids[tokenId]
+                        delete bidHistory[collectionSymbol].ourBids[tokenId]
+                      }
+                    }
+                  }
+
+                  else {
+                    const bidPrice = Math.max(listedPrice * 0.5, minOffer)
+
                     if (bidPrice <= maxOffer) {
-                      console.log('-----------------------------------------------------------------------------------------------------------------------------');
-                      console.log(`OUTBID CURRENT OFFER ${currentPrice} OUR OFFER ${bidPrice} FOR ${collectionSymbol} ${tokenId}`);
-                      console.log('-----------------------------------------------------------------------------------------------------------------------------');
-
                       try {
                         const status = await placeBid(tokenId, bidPrice, expiration, tokenReceiveAddress, buyerPaymentAddress, publicKey, privateKey, collectionSymbol, apiKey)
-
                         if (status === true) {
                           bidHistory[collectionSymbol].topBids[tokenId] = true
                           bidHistory[collectionSymbol].ourBids[tokenId] = {
@@ -225,6 +256,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             expiration: expiration
                           }
                         }
+
                       } catch (error) {
                         console.log(error);
                       }
@@ -232,194 +264,288 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                       console.log('-----------------------------------------------------------------------------------------------------------------------------');
                       console.log(`CALCULATED BID PRICE ${bidPrice} IS GREATER THAN MAX BID ${maxOffer} FOR ${collectionSymbol} ${tokenId}`);
                       console.log('-----------------------------------------------------------------------------------------------------------------------------');
+
                       delete bidHistory[collectionSymbol].topBids[tokenId]
                       delete bidHistory[collectionSymbol].ourBids[tokenId]
                     }
                   }
                 }
+                else if (ourExistingOffer) {
+                  if (bestOffer && Number(bestOffer.total) > 0) {
+                    const [topOffer, secondTopOffer] = bestOffer.offers
+                    const bestPrice = topOffer.price
 
-                else {
-                  const bidPrice = Math.max(listedPrice * 0.5, minOffer)
+                    if (topOffer.buyerPaymentAddress !== buyerPaymentAddress) {
+                      const offerData = await getOffers(tokenId, apiKey, tokenReceiveAddress)
+                      if (offerData && Number(offerData.total) > 0) {
+                        const offer = offerData.offers[0]
 
-                  if (bidPrice <= maxOffer) {
-                    try {
-                      const status = await placeBid(tokenId, bidPrice, expiration, tokenReceiveAddress, buyerPaymentAddress, publicKey, privateKey, collectionSymbol, apiKey)
-                      if (status === true) {
-                        bidHistory[collectionSymbol].topBids[tokenId] = true
-                        bidHistory[collectionSymbol].ourBids[tokenId] = {
-                          price: bidPrice,
-                          expiration: expiration
+                        try {
+                          await cancelBid(offer, privateKey, collectionSymbol, tokenId, buyerPaymentAddress, apiKey)
+                          delete bidHistory[collectionSymbol].ourBids[tokenId]
+                          delete bidHistory[collectionSymbol].topBids[tokenId]
+
+                        } catch (error) {
+                          console.log(error);
                         }
+
+                      }
+                      const currentPrice = topOffer.price
+                      const bidPrice = currentPrice + (outBidMargin * CONVERSION_RATE)
+
+                      if (bidPrice <= maxOffer) {
+                        console.log('-----------------------------------------------------------------------------------------------------------------------------');
+                        console.log(`OUTBID CURRENT OFFER ${currentPrice} OUR OFFER ${bidPrice} FOR ${collectionSymbol} ${tokenId}`);
+                        console.log('-----------------------------------------------------------------------------------------------------------------------------');
+
+                        try {
+                          const status = await placeBid(tokenId, bidPrice, expiration, tokenReceiveAddress, buyerPaymentAddress, publicKey, privateKey, collectionSymbol, apiKey)
+
+
+                          if (status === true) {
+                            bidHistory[collectionSymbol].topBids[tokenId] = true
+                            bidHistory[collectionSymbol].ourBids[tokenId] = {
+                              price: bidPrice,
+                              expiration: expiration
+                            }
+                          }
+                        } catch (error) {
+                          console.log(error);
+                        }
+
+                      } else {
+                        console.log('-----------------------------------------------------------------------------------------------------------------------------');
+                        console.log(`CALCULATED BID PRICE ${bidPrice} IS GREATER THAN MAX BID ${maxOffer} FOR ${collectionSymbol} ${tokenId}`);
+                        console.log('-----------------------------------------------------------------------------------------------------------------------------');
+
+                        delete bidHistory[collectionSymbol].topBids[tokenId]
+                        delete bidHistory[collectionSymbol].ourBids[tokenId]
+                      }
+
+                    } else {
+                      if (secondTopOffer) {
+                        const secondBestPrice = secondTopOffer.price
+                        const outBidAmount = outBidMargin * CONVERSION_RATE
+                        if (bestPrice - secondBestPrice > outBidAmount) {
+                          const bidPrice = secondBestPrice + outBidAmount
+
+                          try {
+                            await cancelBid(topOffer, privateKey, collectionSymbol, tokenId, buyerPaymentAddress, apiKey)
+                            delete bidHistory[collectionSymbol].ourBids[tokenId]
+                            delete bidHistory[collectionSymbol].topBids[tokenId]
+
+                          } catch (error) {
+                            console.log(error);
+                          }
+
+                          if (bidPrice <= maxOffer) {
+                            console.log('-----------------------------------------------------------------------------------------------------------------------------');
+                            console.log(`ADJUST OUR CURRENT OFFER ${bestPrice} TO ${bidPrice} FOR ${collectionSymbol} ${tokenId}`);
+                            console.log('-----------------------------------------------------------------------------------------------------------------------------');
+
+                            try {
+
+                              const status = await placeBid(tokenId, bidPrice, expiration, tokenReceiveAddress, buyerPaymentAddress, publicKey, privateKey, collectionSymbol, apiKey)
+
+                              if (status === true) {
+                                bidHistory[collectionSymbol].topBids[tokenId] = true
+                                bidHistory[collectionSymbol].ourBids[tokenId] = {
+                                  price: bidPrice,
+                                  expiration: expiration
+                                }
+                              }
+                            } catch (error) {
+                              console.log(error);
+                            }
+                          } else {
+                            console.log('-----------------------------------------------------------------------------------------------------------------------------');
+                            console.log(`CALCULATED BID PRICE ${bidPrice} IS GREATER THAN MAX BID ${maxOffer} FOR ${collectionSymbol} ${tokenId}`);
+                            console.log('-----------------------------------------------------------------------------------------------------------------------------');
+
+                            delete bidHistory[collectionSymbol].topBids[tokenId]
+                            delete bidHistory[collectionSymbol].ourBids[tokenId]
+                          }
+                        }
+                      } else {
+                        const bidPrice = Math.max(minOffer, listedPrice * 0.5)
+                        if (bestPrice !== bidPrice) { // self adjust bids.
+
+                          try {
+                            await cancelBid(topOffer, privateKey, collectionSymbol, tokenId, buyerPaymentAddress, apiKey)
+                            delete bidHistory[collectionSymbol].ourBids[tokenId]
+                            delete bidHistory[collectionSymbol].topBids[tokenId]
+                          } catch (error) {
+                            console.log(error);
+                          }
+
+                          console.log('-----------------------------------------------------------------------------------------------------------------------------');
+                          console.log(`ADJUST OUR CURRENT OFFER ${bestPrice} TO ${bidPrice} FOR ${collectionSymbol} ${tokenId}`);
+                          console.log('-----------------------------------------------------------------------------------------------------------------------------');
+
+                          if (bidPrice <= maxOffer) {
+
+                            try {
+                              const status = await placeBid(tokenId, bidPrice, expiration, tokenReceiveAddress, buyerPaymentAddress, publicKey, privateKey, collectionSymbol, apiKey)
+
+                              if (status === true) {
+                                bidHistory[collectionSymbol].topBids[tokenId] = true
+                                bidHistory[collectionSymbol].ourBids[tokenId] = {
+                                  price: bidPrice,
+                                  expiration: expiration
+                                }
+                              }
+                            } catch (error) {
+                              console.log(error);
+                            }
+                          } else {
+                            console.log('-----------------------------------------------------------------------------------------------------------------------------');
+                            console.log(`CALCULATED BID PRICE ${bidPrice} IS GREATER THAN MAX BID ${maxOffer} FOR ${collectionSymbol} ${tokenId}`);
+                            console.log('-----------------------------------------------------------------------------------------------------------------------------');
+
+                            delete bidHistory[collectionSymbol].topBids[tokenId]
+                            delete bidHistory[collectionSymbol].ourBids[tokenId]
+                          }
+
+                        } else if (bidPrice > maxOffer) {
+                          console.log('\x1b[31m%s\x1b[0m', '🛑 CURRENT PRICE IS GREATER THAN MAX OFFER!!! 🛑');
+                          const offerData = await getOffers(tokenId, apiKey, tokenReceiveAddress)
+
+                          const offer = offerData?.offers[0]
+
+                          if (offer) {
+                            await cancelBid(offer, privateKey, collectionSymbol, tokenId, buyerPaymentAddress, apiKey)
+                          }
+
+                          delete bidHistory[collectionSymbol].ourBids[tokenId]
+                          delete bidHistory[collectionSymbol].topBids[tokenId]
+                        }
+                      }
+                    }
+                  }
+                }
+              })
+            )
+          } else if (offerType === "COLLECTION") {
+
+            const bestOffer = await getBestCollectionOffer(collectionSymbol, apiKey)
+            if (bestOffer && bestOffer.offers.length > 0) {
+
+              const [topOffer, secondTopOffer] = bestOffer.offers
+              const bestPrice = topOffer.price.amount
+              const ourOffer = bestOffer.offers.find((item) => item.btcParams.makerPaymentAddress.toLowerCase() === buyerPaymentAddress.toLowerCase()) as ICollectionOffer
+
+
+              if (topOffer.btcParams.makerPaymentAddress !== buyerPaymentAddress) {
+                try {
+
+
+                  if (ourOffer) {
+                    const offerIds = [ourOffer.id]
+                    await cancelCollectionOffer(offerIds, publicKey, privateKey, apiKey)
+                  }
+                } catch (error) {
+                  console.log(error);
+                }
+
+
+                const currentPrice = topOffer.price.amount
+                const bidPrice = currentPrice + (outBidMargin * CONVERSION_RATE)
+                if (bidPrice <= maxOffer && bidPrice < floorPrice) {
+                  console.log('-----------------------------------------------------------------------------------------------------------------------------');
+                  console.log(`OUTBID CURRENT COLLECTION OFFER ${currentPrice} OUR OFFER ${bidPrice} FOR ${collectionSymbol}`);
+                  console.log('-----------------------------------------------------------------------------------------------------------------------------');
+
+                  try {
+                    await placeCollectionBid(bidPrice, expiration, collectionSymbol, tokenReceiveAddress, publicKey, privateKey, feeSatsPerVbyte, apiKey)
+
+
+                    bidHistory[collectionSymbol].offerType = "COLLECTION"
+
+                  } catch (error) {
+                    console.log(error);
+                  }
+
+                } else {
+                  console.log('-----------------------------------------------------------------------------------------------------------------------------');
+                  console.log(`CALCULATED COLLECTION OFFER PRICE ${bidPrice} IS GREATER THAN MAX BID ${maxOffer} FOR ${collectionSymbol}`);
+                  console.log('-----------------------------------------------------------------------------------------------------------------------------');
+                }
+
+              } else {
+                if (secondTopOffer) {
+                  const secondBestPrice = secondTopOffer.price.amount
+                  const outBidAmount = outBidMargin * CONVERSION_RATE
+                  if (bestPrice - secondBestPrice > outBidAmount) {
+                    const bidPrice = secondBestPrice + outBidAmount
+
+                    try {
+                      if (ourOffer) {
+                        const offerIds = [ourOffer.id]
+                        await cancelCollectionOffer(offerIds, publicKey, privateKey, apiKey)
                       }
 
                     } catch (error) {
                       console.log(error);
                     }
-                  } else {
-                    console.log('-----------------------------------------------------------------------------------------------------------------------------');
-                    console.log(`CALCULATED BID PRICE ${bidPrice} IS GREATER THAN MAX BID ${maxOffer} FOR ${collectionSymbol} ${tokenId}`);
-                    console.log('-----------------------------------------------------------------------------------------------------------------------------');
 
-                    delete bidHistory[collectionSymbol].topBids[tokenId]
-                    delete bidHistory[collectionSymbol].ourBids[tokenId]
-                  }
-                }
-              }
-              else if (ourExistingOffer) {
-                if (bestOffer && Number(bestOffer.total) > 0) {
-                  const [topOffer, secondTopOffer] = bestOffer.offers
-                  const bestPrice = topOffer.price
-
-                  if (topOffer.buyerPaymentAddress !== buyerPaymentAddress) {
-                    const offerData = await getOffers(tokenId, apiKey, tokenReceiveAddress)
-                    if (offerData && Number(offerData.total) > 0) {
-                      const offer = offerData.offers[0]
-
+                    if (bidPrice <= maxOffer && bidPrice < floorPrice) {
+                      console.log('-----------------------------------------------------------------------------------------------------------------------------');
+                      console.log(`ADJUST OUR CURRENT COLLECTION OFFER ${bestPrice} TO ${bidPrice} FOR ${collectionSymbol}`);
+                      console.log('-----------------------------------------------------------------------------------------------------------------------------');
                       try {
-                        await cancelBid(offer, privateKey, collectionSymbol, tokenId, buyerPaymentAddress, apiKey)
-                        delete bidHistory[collectionSymbol].ourBids[tokenId]
-                        delete bidHistory[collectionSymbol].topBids[tokenId]
 
+                        await placeCollectionBid(bidPrice, expiration, collectionSymbol, tokenReceiveAddress, publicKey, privateKey, feeSatsPerVbyte, apiKey)
+                        bidHistory[collectionSymbol].offerType = "COLLECTION"
                       } catch (error) {
                         console.log(error);
                       }
-
+                    } else {
+                      console.log('-----------------------------------------------------------------------------------------------------------------------------');
+                      console.log(`CALCULATED COLLECTION OFFER PRICE ${bidPrice} IS GREATER THAN MAX BID ${maxOffer} FOR ${collectionSymbol}`);
+                      console.log('-----------------------------------------------------------------------------------------------------------------------------');
                     }
-                    const currentPrice = topOffer.price
-                    const bidPrice = currentPrice + (outBidMargin * CONVERSION_RATE)
+                  }
+                } else {
+                  const bidPrice = minOffer
+                  if (bestPrice !== bidPrice) {
+                    try {
+                      if (ourOffer) {
+                        const offerIds = [ourOffer.id]
+                        await cancelCollectionOffer(offerIds, publicKey, privateKey, apiKey)
+                      }
+                    } catch (error) {
+                      console.log(error);
+                    }
 
-                    if (bidPrice <= maxOffer) {
-                      console.log('-----------------------------------------------------------------------------------------------------------------------------');
-                      console.log(`OUTBID CURRENT OFFER ${currentPrice} OUR OFFER ${bidPrice} FOR ${collectionSymbol} ${tokenId}`);
-                      console.log('-----------------------------------------------------------------------------------------------------------------------------');
+                    console.log('-----------------------------------------------------------------------------------------------------------------------------');
+                    console.log(`ADJUST OUR CURRENT COLLECTION OFFER ${bestPrice} TO ${bidPrice} FOR ${collectionSymbol} `);
+                    console.log('-----------------------------------------------------------------------------------------------------------------------------');
+
+                    if (bidPrice <= maxOffer && bidPrice < floorPrice) {
 
                       try {
-                        const status = await placeBid(tokenId, bidPrice, expiration, tokenReceiveAddress, buyerPaymentAddress, publicKey, privateKey, collectionSymbol, apiKey)
-
-
-                        if (status === true) {
-                          bidHistory[collectionSymbol].topBids[tokenId] = true
-                          bidHistory[collectionSymbol].ourBids[tokenId] = {
-                            price: bidPrice,
-                            expiration: expiration
-                          }
-                        }
+                        await placeCollectionBid(bidPrice, expiration, collectionSymbol, tokenReceiveAddress, publicKey, privateKey, feeSatsPerVbyte, apiKey)
+                        bidHistory[collectionSymbol].offerType = "COLLECTION"
                       } catch (error) {
                         console.log(error);
                       }
-
                     } else {
                       console.log('-----------------------------------------------------------------------------------------------------------------------------');
-                      console.log(`CALCULATED BID PRICE ${bidPrice} IS GREATER THAN MAX BID ${maxOffer} FOR ${collectionSymbol} ${tokenId}`);
+                      console.log(`CALCULATED BID PRICE ${bidPrice} IS GREATER THAN MAX BID ${maxOffer} FOR ${collectionSymbol}`);
                       console.log('-----------------------------------------------------------------------------------------------------------------------------');
-
-                      delete bidHistory[collectionSymbol].topBids[tokenId]
-                      delete bidHistory[collectionSymbol].ourBids[tokenId]
                     }
 
-                  } else {
-                    if (secondTopOffer) {
-                      const secondBestPrice = secondTopOffer.price
-                      const outBidAmount = outBidMargin * CONVERSION_RATE
-                      if (bestPrice - secondBestPrice > outBidAmount) {
-                        const bidPrice = secondBestPrice + outBidAmount
-
-                        try {
-                          await cancelBid(topOffer, privateKey, collectionSymbol, tokenId, buyerPaymentAddress, apiKey)
-                          delete bidHistory[collectionSymbol].ourBids[tokenId]
-                          delete bidHistory[collectionSymbol].topBids[tokenId]
-
-                        } catch (error) {
-                          console.log(error);
-                        }
-
-                        if (bidPrice <= maxOffer) {
-                          console.log('-----------------------------------------------------------------------------------------------------------------------------');
-                          console.log(`ADJUST OUR CURRENT OFFER ${bestPrice} TO ${bidPrice} FOR ${collectionSymbol} ${tokenId}`);
-                          console.log('-----------------------------------------------------------------------------------------------------------------------------');
-
-                          try {
-
-                            const status = await placeBid(tokenId, bidPrice, expiration, tokenReceiveAddress, buyerPaymentAddress, publicKey, privateKey, collectionSymbol, apiKey)
-
-                            if (status === true) {
-                              bidHistory[collectionSymbol].topBids[tokenId] = true
-                              bidHistory[collectionSymbol].ourBids[tokenId] = {
-                                price: bidPrice,
-                                expiration: expiration
-                              }
-                            }
-                          } catch (error) {
-                            console.log(error);
-                          }
-                        } else {
-                          console.log('-----------------------------------------------------------------------------------------------------------------------------');
-                          console.log(`CALCULATED BID PRICE ${bidPrice} IS GREATER THAN MAX BID ${maxOffer} FOR ${collectionSymbol} ${tokenId}`);
-                          console.log('-----------------------------------------------------------------------------------------------------------------------------');
-
-                          delete bidHistory[collectionSymbol].topBids[tokenId]
-                          delete bidHistory[collectionSymbol].ourBids[tokenId]
-                        }
-                      }
-                    } else {
-                      const bidPrice = Math.max(minOffer, listedPrice * 0.5)
-                      if (bestPrice !== bidPrice) { // self adjust bids.
-
-                        try {
-                          await cancelBid(topOffer, privateKey, collectionSymbol, tokenId, buyerPaymentAddress, apiKey)
-                          delete bidHistory[collectionSymbol].ourBids[tokenId]
-                          delete bidHistory[collectionSymbol].topBids[tokenId]
-                        } catch (error) {
-                          console.log(error);
-                        }
-
-                        console.log('-----------------------------------------------------------------------------------------------------------------------------');
-                        console.log(`ADJUST OUR CURRENT OFFER ${bestPrice} TO ${bidPrice} FOR ${collectionSymbol} ${tokenId}`);
-                        console.log('-----------------------------------------------------------------------------------------------------------------------------');
-
-                        if (bidPrice <= maxOffer) {
-
-                          try {
-                            const status = await placeBid(tokenId, bidPrice, expiration, tokenReceiveAddress, buyerPaymentAddress, publicKey, privateKey, collectionSymbol, apiKey)
-
-                            if (status === true) {
-                              bidHistory[collectionSymbol].topBids[tokenId] = true
-                              bidHistory[collectionSymbol].ourBids[tokenId] = {
-                                price: bidPrice,
-                                expiration: expiration
-                              }
-                            }
-                          } catch (error) {
-                            console.log(error);
-                          }
-                        } else {
-                          console.log('-----------------------------------------------------------------------------------------------------------------------------');
-                          console.log(`CALCULATED BID PRICE ${bidPrice} IS GREATER THAN MAX BID ${maxOffer} FOR ${collectionSymbol} ${tokenId}`);
-                          console.log('-----------------------------------------------------------------------------------------------------------------------------');
-
-                          delete bidHistory[collectionSymbol].topBids[tokenId]
-                          delete bidHistory[collectionSymbol].ourBids[tokenId]
-                        }
-
-                      } else if (bidPrice > maxOffer) {
-                        console.log('\x1b[31m%s\x1b[0m', '🛑 CURRENT PRICE IS GREATER THAN MAX OFFER!!! 🛑');
-                        const offerData = await getOffers(tokenId, apiKey, tokenReceiveAddress)
-
-                        const offer = offerData?.offers[0]
-
-                        if (offer) {
-                          await cancelBid(offer, privateKey, collectionSymbol, tokenId, buyerPaymentAddress, apiKey)
-                        }
-
-                        delete bidHistory[collectionSymbol].ourBids[tokenId]
-                        delete bidHistory[collectionSymbol].topBids[tokenId]
-                      }
-                    }
                   }
                 }
               }
-            })
-          )
+            } else {
+              const bidPrice = minOffer
+              if (bidPrice <= maxOffer && bidPrice < floorPrice) {
+                await placeCollectionBid(bidPrice, expiration, collectionSymbol, tokenReceiveAddress, publicKey, privateKey, feeSatsPerVbyte, apiKey)
+                bidHistory[collectionSymbol].offerType = "COLLECTION"
+              }
+            }
+          }
         } catch (error) {
           throw error
         }
@@ -722,6 +848,27 @@ interface BottomListing {
   price: number;
 }
 
+async function placeCollectionBid(
+  offerPrice: number,
+  expiration: number,
+  collectionSymbol: string,
+  buyerTokenReceiveAddress: string,
+  publicKey: string,
+  privateKey: string,
+  feeSatsPerVbyte: number = 28,
+  apiKey: string
+) {
+  const priceSats = Math.ceil(offerPrice)
+  const expirationAt = new Date(expiration).toISOString();
+
+  const unsignedCollectionOffer = await createCollectionOffer(collectionSymbol, priceSats, expirationAt, feeSatsPerVbyte, publicKey, buyerTokenReceiveAddress, apiKey)
+  if (unsignedCollectionOffer) {
+    const { signedOfferPSBTBase64, signedCancelledPSBTBase64 } = signCollectionOffer(unsignedCollectionOffer, privateKey)
+    await submitCollectionOffer(signedOfferPSBTBase64, signedCancelledPSBTBase64, collectionSymbol, priceSats, expirationAt, publicKey, buyerTokenReceiveAddress, apiKey)
+  }
+
+}
+
 async function placeBid(
   tokenId: string,
   offerPrice: number,
@@ -772,6 +919,7 @@ interface CollectionBottomBid {
 
 interface BidHistory {
   [collectionSymbol: string]: {
+    offerType: 'ITEM' | 'COLLECTION';
     topOffers: {
       [tokenId: string]: {
         price: number,
@@ -794,7 +942,6 @@ interface BidHistory {
     lastSeenActivity: number | null | undefined
   };
 }
-
 interface Attribute { }
 
 interface Meta {
@@ -847,6 +994,7 @@ interface UserBid {
   expiration: string;
 }
 export interface BidData {
+  offerType: "ITEM" | "COLLECTION";
   collectionSymbol: string;
   minBid: number;
   maxBid: number;
