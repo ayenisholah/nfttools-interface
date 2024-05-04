@@ -227,7 +227,9 @@ const CollectionBid = () => {
 								selectedCollections,
 								rowData.fundingWalletWIF,
 								apiKey,
-								collectionSymbol as string
+								collectionSymbol as string,
+								rowData.tokenReceiveAddress,
+								rowData.offerType
 							)
 						}>
 						Cancel Selected
@@ -337,7 +339,14 @@ const CollectionBid = () => {
 											<button
 												className='text-red-600 hover:underline'
 												onClick={async () => {
-													await cancel(offer, rowData.fundingWalletWIF, apiKey);
+													await cancel(
+														offer,
+														rowData.fundingWalletWIF,
+														apiKey,
+														collectionSymbol as string,
+														rowData.tokenReceiveAddress,
+														rowData.offerType
+													);
 												}}>
 												Cancel
 											</button>

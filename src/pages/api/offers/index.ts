@@ -1,6 +1,15 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { IOffer, getBestCollectionOffer, getUserOffers, retrieveCancelOfferFormat, signData, submitCancelOfferData } from "@/services/offers";
+import * as bitcoin from "bitcoinjs-lib"
+import { ICollectionOffer, IOffer, cancelCollectionOffer, getBestCollectionOffer, getUserOffers, retrieveCancelOfferFormat, signData, submitCancelOfferData } from "@/services/offers";
 import { bidHistory } from "../bid";
+
+import tinysecp from '@bitcoinerlab/secp256k1'
+import { ECPairFactory, ECPairAPI } from 'ecpair';
+
+
+const ECPair: ECPairAPI = ECPairFactory(tinysecp);
+const network = bitcoin.networks.bitcoin;
+
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -27,27 +36,57 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } else if (req.method === "POST") {
 
       if (req.body.requestType === 'cancelAll') {
-        const { offers, fundingWalletWIF, apiKey, collection } = req.body.data as ICancelBulkOffers
-        const cancelOps = []
+        const { offers, fundingWalletWIF, apiKey, collection, offerType, tokenReceiveAddress } = req.body.data as ICancelBulkOffers
 
-        console.log({ offers, fundingWalletWIF, apiKey });
+        const privateKey = fundingWalletWIF
 
-        for (const offer of offers) {
-          const cancelOperation = cancelBid(offer, fundingWalletWIF, apiKey)
-          cancelOps.push(cancelOperation)
+        const keyPair = ECPair.fromWIF(privateKey, network);
+        const publicKey = keyPair.publicKey.toString('hex');
 
-          delete bidHistory[collection]
+        if (offerType === "ITEM") {
+
+          const cancelOps = []
+
+          console.log({ offers, fundingWalletWIF, apiKey });
+
+          for (const offer of offers) {
+            const cancelOperation = cancelBid(offer, fundingWalletWIF, apiKey)
+            cancelOps.push(cancelOperation)
+
+            delete bidHistory[collection]
+          }
+          Promise.all(cancelOps)
+          res.status(201).json({ success: true })
+        } else if (offerType === "COLLECTION") {
+          const bestOffers = await getBestCollectionOffer(collection, apiKey)
+          const ourOffers = bestOffers?.offers.find((item) => item.btcParams.makerOrdinalReceiveAddress.toLowerCase() === tokenReceiveAddress.toLowerCase()) as ICollectionOffer
+
+          if (ourOffers) {
+            const offerIds = [ourOffers.id]
+            await cancelCollectionOffer(offerIds, publicKey, privateKey, apiKey)
+          }
         }
-        Promise.all(cancelOps)
-        res.status(201).json({ success: true })
       } else if (req.body.requestType === 'cancel') {
+        const { offer, fundingWalletWIF, apiKey, tokenReceiveAddress, offerType, collection } = req.body.data as ICancelOffer
+        const privateKey = fundingWalletWIF
 
-        const { offer, fundingWalletWIF, apiKey } = req.body.data as ICancelOffer
-        await cancelBid(offer.id, fundingWalletWIF, apiKey)
+        const keyPair = ECPair.fromWIF(privateKey, network);
+        const publicKey = keyPair.publicKey.toString('hex');
 
-        delete bidHistory[offer.token.collectionSymbol]?.topBids[offer.tokenId]
-        delete bidHistory[offer.token.collectionSymbol]?.ourBids[offer.tokenId]
-        res.status(201).json({ success: true })
+        if (offerType === "ITEM") {
+          await cancelBid(offer.id, fundingWalletWIF, apiKey)
+          delete bidHistory[offer.token.collectionSymbol]?.topBids[offer.tokenId]
+          delete bidHistory[offer.token.collectionSymbol]?.ourBids[offer.tokenId]
+          res.status(201).json({ success: true })
+        } else if (offerType === "COLLECTION") {
+          const bestOffers = await getBestCollectionOffer(collection, apiKey)
+          const ourOffers = bestOffers?.offers.find((item) => item.btcParams.makerOrdinalReceiveAddress.toLowerCase() === tokenReceiveAddress.toLowerCase()) as ICollectionOffer
+
+          if (ourOffers) {
+            const offerIds = [ourOffers.id]
+            await cancelCollectionOffer(offerIds, publicKey, privateKey, apiKey)
+          }
+        }
       }
     }
   } catch (error) {
@@ -57,13 +96,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 interface ICancelBulkOffers {
+  offerType: "ITEM" | "COLLECTION";
   offers: string[];
   fundingWalletWIF: string;
   apiKey: string;
   collection: string;
+  tokenReceiveAddress: string;
 }
 
 interface ICancelOffer {
+  offerType: "ITEM" | "COLLECTION";
+  tokenReceiveAddress: string;
   offer: IOffer;
   fundingWalletWIF: string;
   apiKey: string;
