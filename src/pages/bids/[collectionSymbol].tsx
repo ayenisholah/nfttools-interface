@@ -230,14 +230,14 @@ const CollectionBid = () => {
 								collectionSymbol as string
 							)
 						}>
-						Cancel All Offers
+						Cancel Selected
 					</button>
 				</div>
 				<div className='relative overflow-x-auto shadow-md'>
 					<table className='w-full text-sm text-left text-white border border-[#343B4F] rounded-lg'>
 						<thead className='text-xs bg-[#0A1330]'>
 							<tr>
-								<th scope='col' className='p-4'>
+								<th scope='col' className='p-4 text-center'>
 									<div className='flex items-center'>
 										<input
 											id='checkbox-all-offers'
@@ -253,24 +253,28 @@ const CollectionBid = () => {
 									</div>
 								</th>
 
-								<th scope='col' className='px-6 py-5'>
+								<th scope='col' className='px-6 py-5 text-center'>
+									S/N
+								</th>
+
+								<th scope='col' className='px-6 py-5 text-center'>
 									Token ID
 								</th>
-								<th scope='col' className='px-6 py-5'>
+								<th scope='col' className='px-6 py-5 text-center'>
 									Offer Price
 								</th>
 
-								<th scope='col' className='px-6 py-5'>
+								<th scope='col' className='px-6 py-5 text-center'>
 									Listed Price
 								</th>
 
-								<th scope='col' className='px-6 py-5'>
+								<th scope='col' className='px-6 py-5 text-center'>
 									Potential Profit
 								</th>
-								<th scope='col' className='px-6 py-5'>
+								<th scope='col' className='px-6 py-5 text-center'>
 									Expiration Date
 								</th>
-								<th scope='col' className='px-6 py-5'>
+								<th scope='col' className='px-6 py-5 text-center'>
 									Action
 								</th>
 							</tr>
@@ -284,7 +288,7 @@ const CollectionBid = () => {
 										className={`${
 											index % 2 === 0 ? "bg-[#0b1739]" : "bg-[#091330]"
 										}`}>
-										<td className='p-4'>
+										<td className='p-4 text-center text-white'>
 											<div className='flex items-center'>
 												<input
 													id={`checkbox-offer-${index}`}
@@ -301,31 +305,35 @@ const CollectionBid = () => {
 												</label>
 											</div>
 										</td>
+										<td className='px-6 py-5 text-center'>{index + 1}</td>
+
 										<Link
-											className='px-6 py-5 font-medium underline'
+											className='px-6 py-5 font-medium underline text-center'
 											target='_blank'
 											href={`https://magiceden.io/ordinals/item-details/${offer.tokenId}`}>
-											<td>{"..." + offer.tokenId.slice(-8)}</td>
+											<td className='text-center'>
+												{"..." + offer.tokenId.slice(-8)}
+											</td>
 										</Link>
-										<td className='px-6 py-5'>
+										<td className='px-6 py-5 text-center'>
 											{(offer.price * 1e-8).toFixed(8)}{" "}
 											<span className='text-[#998ca6]'>BTC</span>
 										</td>
-										<td className='px-6 py-5'>
+										<td className='px-6 py-5 text-center'>
 											{(offer.token.listedPrice * 1e-8).toFixed(8)}{" "}
 											<span className='text-[#998ca6]'>BTC</span>
 										</td>
 
-										<td className='px-6 py-5'>
+										<td className='px-6 py-5 text-center'>
 											{((offer.token.listedPrice - offer.price) * 1e-8).toFixed(
 												8
 											)}{" "}
 											<span className='text-[#998ca6]'>BTC</span>
 										</td>
-										<td className='px-6 py-5'>
+										<td className='px-6 py-5 text-center'>
 											{calculateMinutesDifference(offer.expirationDate)} m
 										</td>
-										<td className='flex items-center px-6 py-5'>
+										<td className='flex items-center px-6 py-5 text-center'>
 											<button
 												className='text-red-600 hover:underline'
 												onClick={async () => {

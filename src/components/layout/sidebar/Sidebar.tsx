@@ -17,8 +17,7 @@ const Sidebar = () => {
 	const router = useRouter();
 
 	const NAV_ITEMS = [
-		{ name: "Dashboard", icon: DashboardIcon, href: "/" },
-		{ name: "Collections", icon: CollectionsIcon, href: "/collections" },
+		{ name: "Tasks", icon: DashboardIcon, href: "/" },
 		{ name: "Accounts", icon: AccountIcon, href: "/accounts" },
 		{ name: "Features", icon: FeaturesIcon, href: "/features" },
 		{ name: "Pricing", icon: PricingIcon, href: "/pricing" },

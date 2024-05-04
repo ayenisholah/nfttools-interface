@@ -451,7 +451,7 @@ export default function Home() {
 							<label
 								htmlFor='funding_wif'
 								className='block mb-2 text-sm font-medium text-white'>
-								FUNDING WIF
+								FUNDING WALLET
 							</label>
 							<div className='relative'>
 								<button
@@ -658,9 +658,9 @@ export default function Home() {
 					</div>
 				</div>
 			)}
-			<h2 className='text-white text-[20px] font-semibold'>My Activity</h2>
+			<h2 className='text-white text-[20px] font-semibold'>My Tasks</h2>
 			<p className='mt-2 text-[14px] font-medium text-[#AEB9E1]'>
-				You have {collections.length} collection(s) to bid on
+				You have {collections.length} task(s) to bid on
 			</p>
 
 			<div className='mt-6'>
@@ -675,12 +675,12 @@ export default function Home() {
 						<button
 							className='bg-[#CB3CFF] w-[140px] text-white font-medium text-xs py-2 px-4 rounded'
 							onClick={() => startAll(selectedCollections)}>
-							Start
+							Start Selected
 						</button>
 						<button
 							className='bg-red-500 w-[140px] text-white font-medium text-xs py-2 px-4 rounded'
 							onClick={() => stopAll(selectedCollections)}>
-							Stop
+							Stop Selected
 						</button>
 					</div>
 				</div>
@@ -688,7 +688,7 @@ export default function Home() {
 					<table className='w-full text-xs text-left text-white border border-[#343B4F] rounded-lg'>
 						<thead className='text-xs bg-[#0A1330]'>
 							<tr>
-								<th scope='col' className='p-4'>
+								<th scope='col' className='p-4 text-center'>
 									<div className='flex items-center'>
 										<input
 											id='checkbox-all-search'
@@ -703,34 +703,34 @@ export default function Home() {
 										</label>
 									</div>
 								</th>
-								<th scope='col' className='px-6 py-5'>
+								<th scope='col' className='px-6 py-5 text-center'>
 									Collection Symbol
 								</th>
-								<th scope='col' className='px-6 py-5'>
+								<th scope='col' className='px-6 py-5 text-center'>
 									Min Bid
 								</th>
-								<th scope='col' className='px-6 py-5'>
+								<th scope='col' className='px-6 py-5 text-center'>
 									Max Bid
 								</th>
-								<th scope='col' className='px-6 py-5'>
+								<th scope='col' className='px-6 py-5 text-center'>
 									Min Floor Bid
 								</th>
-								<th scope='col' className='px-6 py-5'>
+								<th scope='col' className='px-6 py-5 text-center'>
 									Max Floor Bid
 								</th>
-								<th scope='col' className='px-6 py-5'>
+								<th scope='col' className='px-6 py-5 text-center'>
 									Outbid Margin
 								</th>
-								<th scope='col' className='px-6 py-5'>
+								<th scope='col' className='px-6 py-5 text-center'>
 									Bid Count
 								</th>
-								<th scope='col' className='px-6 py-5'>
+								<th scope='col' className='px-6 py-5 text-center'>
 									Duration
 								</th>
-								<th scope='col' className='px-6 py-5'>
+								<th scope='col' className='px-6 py-5 text-center'>
 									Status
 								</th>
-								<th scope='col' className='px-6 py-5'>
+								<th scope='col' className='px-6 py-5 text-center'>
 									Action
 								</th>
 							</tr>
@@ -744,7 +744,7 @@ export default function Home() {
 										className={`${
 											index % 2 === 0 ? "bg-[#0b1739]" : "bg-[#091330]"
 										}`}>
-										<td className='w-4 p-4'>
+										<td className='w-4 p-4 text-center'>
 											<div className='flex items-center'>
 												<input
 													id={`checkbox-table-search-${index}`}
@@ -767,13 +767,13 @@ export default function Home() {
 										</td>
 										<th
 											scope='row'
-											className='px-6 py-5 font-medium text-gray-900 whitespace-nowrap dark:text-white'>
+											className='px-6 py-5 text-center font-medium text-gray-900 whitespace-nowrap dark:text-white'>
 											<Link
 												href={{
 													pathname: `/bids/${bidState.collectionSymbol}`,
 													query: { data: JSON.stringify(bidState) },
 												}}
-												className='underline font-semibold'>
+												className='underline font-semibold text-center text-white'>
 												{bidState.collectionSymbol}
 											</Link>
 										</th>
@@ -803,7 +803,7 @@ export default function Home() {
 										</td>
 										<td className='flex items-center px-6 py-5'>
 											<button
-												className={`font-medium ${
+												className={`font-medium text-center ${
 													bidState.running
 														? "text-red-600 hover:underline"
 														: "text-green-600 hover:underline"

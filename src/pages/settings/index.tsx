@@ -159,7 +159,7 @@ const Settings: React.FC = () => {
 					<label
 						htmlFor='funding_wif'
 						className='block mb-2 text-sm font-medium text-white'>
-						FUNDING WIF
+						FUNDING WALLET
 					</label>
 					<div className='relative'>
 						<button
