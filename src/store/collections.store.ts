@@ -84,30 +84,35 @@ export const useCollectionsState = create<CollectionsState>()(
 
         const receiveAddress = collection?.tokenReceiveAddress || tokenReceiveAddress
 
+        if (collection) {
+          const offerType = collection.offerType
 
-        try {
-          const url = `/api/offers?requestType=getCollectionOffers&tokenReceiveAddress=${receiveAddress}&collectionSymbol=${collectionSymbol}&apiKey=${apiKey}`;
-          const response = await fetch(url.toString(), {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          });
-          if (!response.ok) {
-            throw new Error("Failed to fetch data");
+          try {
+            const url = `/api/offers?requestType=getCollectionOffers&tokenReceiveAddress=${receiveAddress}&collectionSymbol=${collectionSymbol}&apiKey=${apiKey}`;
+            const response = await fetch(url.toString(), {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            });
+            if (!response.ok) {
+              throw new Error("Failed to fetch data");
+            }
+            const responseData: IOffer[] = await response.json();
+
+            const offers = responseData
+              .filter((item) => item.token.collectionSymbol === collectionSymbol)
+            const offerIds = offers.map((item) => item.id)
+
+            await cancelAll(offerIds, wif, apiKey, collectionSymbol, receiveAddress, offerType)
+            toast.success("successfully removed collection and delete all offers")
+
+          } catch (error) {
+            console.log(error);
           }
-          const responseData: IOffer[] = await response.json();
 
-          const offers = responseData
-            .filter((item) => item.token.collectionSymbol === collectionSymbol)
-          const offerIds = offers.map((item) => item.id)
-
-          await cancelAll(offerIds, wif, apiKey, collectionSymbol)
-          toast.success("successfully removed collection and delete all offers")
-
-        } catch (error) {
-          console.log(error);
         }
+
 
 
       },
