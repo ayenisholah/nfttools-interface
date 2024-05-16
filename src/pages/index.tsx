@@ -18,7 +18,6 @@ export default function Home() {
 		tokenReceiveAddress: defaultTokenReceiveAddress,
 		bidExpiration,
 		defaultLoopTime,
-		defaultCounterLoopTime,
 	} = useSettingsState();
 	const { bidStates, startAll, stopAll, startBid, stopBid } =
 		useBidStateStore();
@@ -45,6 +44,7 @@ export default function Home() {
 
 	const [formState, setFormState] = useState<CollectionData>({
 		collectionSymbol: "",
+		quantity: 1,
 		minBid: 0,
 		maxBid: 0,
 		minFloorBid: 50,
@@ -53,9 +53,9 @@ export default function Home() {
 		bidCount: 10,
 		duration: 10,
 		fundingWalletWIF: "",
+		enableCounterbidding: true,
 		tokenReceiveAddress: "",
 		scheduledLoop: 600,
-		counterbidLoop: 600,
 		floorPrice: 0,
 		offerType: "ITEM",
 	});
@@ -115,7 +115,6 @@ export default function Home() {
 					collection.tokenReceiveAddress || defaultTokenReceiveAddress,
 				duration: collection.duration || bidExpiration,
 				scheduledLoop: collection.scheduledLoop || defaultLoopTime,
-				counterbidLoop: collection.counterbidLoop || defaultCounterLoopTime,
 				running: bidState?.running || false,
 			};
 		});
@@ -126,13 +125,13 @@ export default function Home() {
 		defaultTokenReceiveAddress,
 		bidExpiration,
 		defaultLoopTime,
-		defaultCounterLoopTime,
 	]);
 
 	function handleClose() {
 		setIsOpen(false);
 
 		setFormState({
+			quantity: 1,
 			collectionSymbol: "",
 			minBid: 0,
 			maxBid: 0,
@@ -144,8 +143,8 @@ export default function Home() {
 			fundingWalletWIF: "",
 			tokenReceiveAddress: "",
 			scheduledLoop: 600,
-			counterbidLoop: 600,
 			offerType: "ITEM",
+			enableCounterbidding: true,
 		});
 		setEditIndex(null);
 
@@ -178,6 +177,13 @@ export default function Home() {
 				[field]: value,
 			}));
 		}
+	};
+
+	const handleToggleChange = (field: keyof CollectionData) => {
+		setFormState((prevState) => ({
+			...prevState,
+			[field]: !prevState[field],
+		}));
 	};
 
 	const handleWalletChange = (address: string) => {
@@ -215,6 +221,7 @@ export default function Home() {
 		}
 
 		setFormState({
+			quantity: 1,
 			collectionSymbol: "",
 			minBid: 0,
 			maxBid: 0,
@@ -223,10 +230,10 @@ export default function Home() {
 			outBidMargin: 1e-6,
 			bidCount: 10,
 			duration: 10,
+			enableCounterbidding: true,
 			fundingWalletWIF: "",
 			tokenReceiveAddress: "",
 			scheduledLoop: 600,
-			counterbidLoop: 600,
 			offerType: "ITEM",
 		});
 		setEditIndex(null);
@@ -332,312 +339,340 @@ export default function Home() {
 	return (
 		<div className='py-[30px] px-[40px]'>
 			{isOpen && (
-				<div className='fixed inset-0 flex items-center justify-center z-50'>
-					<div className='mt-6 w-[768px] border border-[#343B4F] rounded-xl p-8 bg-[#0b1739]'>
-						<div className='flex justify-between items-center'>
-							<h2 className='text-xl font-semibold text-white'>
-								{editIndex !== null ? "Edit Collection" : "Add New Collection"}
-							</h2>
+				<div className='max-h-[80vh] my-8'>
+					<div className='absolute left-[25%] right-[25%] flex items-center justify-center z-[99] overflow-y-auto'>
+						<div className='mt-6 w-[768px] border border-[#343B4F] rounded-xl p-8 bg-[#0b1739]'>
+							<div className='flex justify-between items-center'>
+								<h2 className='text-xl font-semibold text-white'>
+									{editIndex !== null
+										? "Edit Collection"
+										: "Add New Collection"}
+								</h2>
 
-							<button
-								className='text-white hover:text-gray-300'
-								onClick={handleClose}>
-								<svg
-									xmlns='http://www.w3.org/2000/svg'
-									className='h-6 w-6'
-									fill='none'
-									viewBox='0 0 24 24'
-									stroke='currentColor'>
-									<path
-										strokeLinecap='round'
-										strokeLinejoin='round'
-										strokeWidth={2}
-										d='M6 18L18 6M6 6l12 12'
-									/>
-								</svg>
-							</button>
-						</div>
-						{!apiKey ? (
-							<span className='bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded'>
-								NFT TOOLS API KEY not set, please add key in &nbsp;
-								<Link href='/settings' className='underline'>
-									settings
-								</Link>
-								&nbsp; to verify your collections
-							</span>
-						) : null}
-						<div className='mt-6'>
-							<label
-								htmlFor='collection_symbol'
-								className='mb-2 text-sm font-medium text-white flex gap-2 items-center'>
-								COLLECTION SYMBOL
-								{collectionDetails.symbol && collectionDetails.floorPrice ? (
-									<CheckIcon />
-								) : null}
-							</label>
-							<input
-								type='text'
-								id='collection_symbol'
-								className='p-[14px] bg-transparent border border-[#343B4F] w-full rounded text-white'
-								placeholder=''
-								value={formState.collectionSymbol}
-								onChange={(e) => handleInputChange(e, "collectionSymbol")}
-								required
-								disabled={!apiKey}
-							/>
-						</div>
-
-						<div className='mt-6 relative'>
-							<label
-								htmlFor='offer_type'
-								className='block mb-2 text-sm font-medium text-white'>
-								OFFER TYPE
-							</label>
-							<div className='relative'>
 								<button
-									type='button'
-									className='p-[14px] bg-transparent border border-[#343B4F] w-full rounded text-white flex items-center justify-between'
-									onClick={toggleOfferTypeDropdown}>
-									<span className='text-white'>{offerType}</span>
-									<ChevronDownIcon
-										className={`w-5 h-5 ml-2 transition-transform ${
-											openOfferTypeDropdown ? "transform rotate-180" : ""
-										}`}
-									/>
+									className='text-white hover:text-gray-300'
+									onClick={handleClose}>
+									<svg
+										xmlns='http://www.w3.org/2000/svg'
+										className='h-6 w-6'
+										fill='none'
+										viewBox='0 0 24 24'
+										stroke='currentColor'>
+										<path
+											strokeLinecap='round'
+											strokeLinejoin='round'
+											strokeWidth={2}
+											d='M6 18L18 6M6 6l12 12'
+										/>
+									</svg>
 								</button>
-								{openOfferTypeDropdown && (
-									<div className='absolute z-10 w-full bg-[#1A2342] border border-[#343B4F] rounded shadow-lg mt-1'>
-										<div
-											className={`p-[14px] text-white cursor-pointer hover:bg-[#343B4F] ${
-												offerType === "ITEM" ? "bg-[#343B4F]" : ""
-											}`}
-											onClick={() => handleOfferTypeChange("ITEM")}>
-											ITEM
-										</div>
-										<div
-											className={`p-[14px] text-white cursor-pointer hover:bg-[#343B4F] ${
-												offerType === "COLLECTION" ? "bg-[#343B4F]" : ""
-											}`}
-											onClick={() => handleOfferTypeChange("COLLECTION")}>
-											COLLECTION
-										</div>
-									</div>
-								)}
 							</div>
-						</div>
-						<div className='mt-6'>
-							<label
-								htmlFor='token_receive_address'
-								className='mb-2 text-sm font-medium text-white flex gap-2'>
-								TOKEN RECEIVE ADDRESS (ordinal address)
-								{isOrdinalAddress ? <CheckIcon /> : null}
-							</label>
-							<input
-								type='text'
-								id='token_receive_address'
-								className='p-[14px] bg-transparent border border-[#343B4F] w-full rounded text-white'
-								placeholder=''
-								value={formState.tokenReceiveAddress}
-								onChange={(e) => handleInputChange(e, "tokenReceiveAddress")}
-							/>
-
-							{formState.tokenReceiveAddress && !isOrdinalAddress ? (
-								<span className='bg-yellow-100 text-yellow-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-yellow-900 dark:text-yellow-300'>
-									⚠️ This address is not a valid ordinal address
+							{!apiKey ? (
+								<span className='bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded'>
+									NFT TOOLS API KEY not set, please add key in &nbsp;
+									<Link href='/settings' className='underline'>
+										settings
+									</Link>
+									&nbsp; to verify your collections
 								</span>
 							) : null}
-						</div>
-						<div className='mt-6 relative'>
-							<label
-								htmlFor='funding_wif'
-								className='block mb-2 text-sm font-medium text-white'>
-								FUNDING WALLET
-							</label>
-							<div className='relative'>
-								<button
-									type='button'
-									className='p-[14px] bg-transparent border border-[#343B4F] w-full rounded text-white flex items-center justify-between'
-									onClick={toggleDropdown}>
-									<span
-										className={selectedWallet ? "text-white" : "text-gray-400"}>
-										{selectedWallet
-											? wallets.find(
-													(wallet) => wallet.address === selectedWallet
-											  )?.address
-											: "Select a wallet"}
-									</span>
-									<ChevronDownIcon
-										className={`w-5 h-5 ml-2 transition-transform ${
-											openDropDown ? "transform rotate-180" : ""
-										}`}
-									/>
-								</button>
-								{openDropDown && (
-									<div className='absolute z-10 w-full bg-[#1A2342] border border-[#343B4F] rounded shadow-lg mt-1'>
-										{wallets.map((wallet, index) => (
+							<div className='mt-6'>
+								<label
+									htmlFor='collection_symbol'
+									className='mb-2 text-sm font-medium text-white flex gap-2 items-center'>
+									COLLECTION SYMBOL
+									{collectionDetails.symbol && collectionDetails.floorPrice ? (
+										<CheckIcon />
+									) : null}
+								</label>
+								<input
+									type='text'
+									id='collection_symbol'
+									className='p-[14px] bg-transparent border border-[#343B4F] w-full rounded text-white'
+									placeholder=''
+									value={formState.collectionSymbol}
+									onChange={(e) => handleInputChange(e, "collectionSymbol")}
+									required
+									disabled={!apiKey}
+								/>
+							</div>
+
+							<div className='mt-6 relative'>
+								<label
+									htmlFor='offer_type'
+									className='block mb-2 text-sm font-medium text-white'>
+									OFFER TYPE
+								</label>
+								<div className='relative'>
+									<button
+										type='button'
+										className='p-[14px] bg-transparent border border-[#343B4F] w-full rounded text-white flex items-center justify-between'
+										onClick={toggleOfferTypeDropdown}>
+										<span className='text-white'>{offerType}</span>
+										<ChevronDownIcon
+											className={`w-5 h-5 ml-2 transition-transform ${
+												openOfferTypeDropdown ? "transform rotate-180" : ""
+											}`}
+										/>
+									</button>
+									{openOfferTypeDropdown && (
+										<div className='absolute z-10 w-full bg-[#1A2342] border border-[#343B4F] rounded shadow-lg mt-1'>
 											<div
-												key={index}
 												className={`p-[14px] text-white cursor-pointer hover:bg-[#343B4F] ${
-													selectedWallet === wallet.privateKey
-														? "bg-[#343B4F]"
-														: ""
+													offerType === "ITEM" ? "bg-[#343B4F]" : ""
 												}`}
-												onClick={() => handleWalletChange(wallet.address)}>
-												{wallet.address}
+												onClick={() => handleOfferTypeChange("ITEM")}>
+												ITEM
 											</div>
-										))}
-									</div>
-								)}
+											<div
+												className={`p-[14px] text-white cursor-pointer hover:bg-[#343B4F] ${
+													offerType === "COLLECTION" ? "bg-[#343B4F]" : ""
+												}`}
+												onClick={() => handleOfferTypeChange("COLLECTION")}>
+												COLLECTION
+											</div>
+										</div>
+									)}
+								</div>
 							</div>
-							<div className='mt-2'>
-								<Link href='/accounts' className='text-white underline'>
-									Add a new key
-								</Link>
-							</div>
-						</div>
+							<div className='mt-6'>
+								<label
+									htmlFor='token_receive_address'
+									className='mb-2 text-sm font-medium text-white flex gap-2'>
+									TOKEN RECEIVE ADDRESS (ordinal address)
+									{isOrdinalAddress ? <CheckIcon /> : null}
+								</label>
+								<input
+									type='text'
+									id='token_receive_address'
+									className='p-[14px] bg-transparent border border-[#343B4F] w-full rounded text-white'
+									placeholder=''
+									value={formState.tokenReceiveAddress}
+									onChange={(e) => handleInputChange(e, "tokenReceiveAddress")}
+								/>
 
-						<DualRangeSlider
-							setFormState={setFormState}
-							formState={formState}
-							floorPrice={collectionDetails.floorPrice}
-						/>
+								{formState.tokenReceiveAddress && !isOrdinalAddress ? (
+									<span className='bg-yellow-100 text-yellow-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-yellow-900 dark:text-yellow-300'>
+										⚠️ This address is not a valid ordinal address
+									</span>
+								) : null}
+							</div>
+							<div className='mt-6 relative'>
+								<label
+									htmlFor='funding_wif'
+									className='block mb-2 text-sm font-medium text-white'>
+									FUNDING WALLET
+								</label>
+								<div className='relative'>
+									<button
+										type='button'
+										className='p-[14px] bg-transparent border border-[#343B4F] w-full rounded text-white flex items-center justify-between'
+										onClick={toggleDropdown}>
+										<span
+											className={
+												selectedWallet ? "text-white" : "text-gray-400"
+											}>
+											{selectedWallet
+												? wallets.find(
+														(wallet) => wallet.address === selectedWallet
+												  )?.address
+												: "Select a wallet"}
+										</span>
+										<ChevronDownIcon
+											className={`w-5 h-5 ml-2 transition-transform ${
+												openDropDown ? "transform rotate-180" : ""
+											}`}
+										/>
+									</button>
+									{openDropDown && (
+										<div className='absolute z-10 w-full bg-[#1A2342] border border-[#343B4F] rounded shadow-lg mt-1'>
+											{wallets.map((wallet, index) => (
+												<div
+													key={index}
+													className={`p-[14px] text-white cursor-pointer hover:bg-[#343B4F] ${
+														selectedWallet === wallet.privateKey
+															? "bg-[#343B4F]"
+															: ""
+													}`}
+													onClick={() => handleWalletChange(wallet.address)}>
+													{wallet.address}
+												</div>
+											))}
+										</div>
+									)}
+								</div>
+								<div className='mt-2'>
+									<Link href='/accounts' className='text-white underline'>
+										Add a new key
+									</Link>
+								</div>
+							</div>
 
-						<div className='mt-6 flex space-x-4'>
-							<div>
-								<label
-									htmlFor='min_bid'
-									className='block mb-2 text-sm font-medium text-white'>
-									MIN BID <span className='text-[#998ca6]'>(BTC)</span>
-								</label>
-								<input
-									type='number'
-									id='min_bid'
-									className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
-									placeholder={
-										collectionDetails.floorPrice && formState.minBid === 0
-											? (collectionDetails.floorPrice * 0.5).toString()
-											: formState.minBid > 0
-											? formState.minBid.toString()
-											: ""
-									}
-									inputMode='numeric'
-									value={formState.minBid}
-									onChange={(e) => handleNumberInputChange(e, "minBid")}
-									required
-								/>
-							</div>
-							<div>
-								<label
-									htmlFor='max_bid'
-									className='block mb-2 text-sm font-medium text-white'>
-									MAX BID <span className='text-[#998ca6]'>(BTC)</span>
-								</label>
-								<input
-									type='number'
-									id='max_bid'
-									className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
-									placeholder=''
-									inputMode='numeric'
-									value={formState.maxBid}
-									onChange={(e) => handleNumberInputChange(e, "maxBid")}
-									required
-								/>
-							</div>
-						</div>
+							<DualRangeSlider
+								setFormState={setFormState}
+								formState={formState}
+								floorPrice={collectionDetails.floorPrice}
+							/>
 
-						<div className='mt-6 flex space-x-4'>
-							<div>
-								<label
-									htmlFor='scheduled_loop'
-									className='block mb-2 text-sm font-medium text-white'>
-									SCHEDULED LOOP{" "}
-									<span className='text-[#998ca6]'>(seconds)</span>
-								</label>
-								<input
-									type='number'
-									id='scheduled_loop'
-									className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
-									placeholder=''
-									inputMode='numeric'
-									value={formState.scheduledLoop}
-									onChange={(e) => handleNumberInputChange(e, "scheduledLoop")}
-								/>
+							<div className='mt-6 flex space-x-4'>
+								<div>
+									<label
+										htmlFor='min_bid'
+										className='block mb-2 text-sm font-medium text-white'>
+										MIN BID <span className='text-[#998ca6]'>(BTC)</span>
+									</label>
+									<input
+										type='number'
+										id='min_bid'
+										className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+										placeholder={
+											collectionDetails.floorPrice && formState.minBid === 0
+												? (collectionDetails.floorPrice * 0.5).toString()
+												: formState.minBid > 0
+												? formState.minBid.toString()
+												: ""
+										}
+										inputMode='numeric'
+										value={formState.minBid}
+										onChange={(e) => handleNumberInputChange(e, "minBid")}
+										required
+									/>
+								</div>
+								<div>
+									<label
+										htmlFor='max_bid'
+										className='block mb-2 text-sm font-medium text-white'>
+										MAX BID <span className='text-[#998ca6]'>(BTC)</span>
+									</label>
+									<input
+										type='number'
+										id='max_bid'
+										className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+										placeholder=''
+										inputMode='numeric'
+										value={formState.maxBid}
+										onChange={(e) => handleNumberInputChange(e, "maxBid")}
+										required
+									/>
+								</div>
+								<div>
+									<label
+										htmlFor='max_bid'
+										className='block mb-2 text-sm font-medium text-white'>
+										BUY QUANTITY <span className='text-[#998ca6]'></span>
+									</label>
+									<input
+										type='number'
+										id='quantity'
+										className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+										placeholder=''
+										inputMode='numeric'
+										value={formState.quantity}
+										onChange={(e) => handleNumberInputChange(e, "quantity")}
+										required
+									/>
+								</div>
 							</div>
-							<div>
-								<label
-									htmlFor='counterbid_loop'
-									className='block mb-2 text-sm font-medium text-white'>
-									COUNTERBID LOOP{" "}
-									<span className='text-[#998ca6]'>(seconds)</span>
-								</label>
-								<input
-									type='number'
-									id='counterbid_loop'
-									className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
-									placeholder=''
-									inputMode='numeric'
-									value={formState.counterbidLoop}
-									onChange={(e) => handleNumberInputChange(e, "counterbidLoop")}
-								/>
-							</div>
-						</div>
-						<div className='mt-6 flex space-x-4'>
-							<div>
-								<label
-									htmlFor='out_bid_margin'
-									className='block mb-2 text-sm font-medium text-white'>
-									OUT BID MARGIN <span className='text-[#998ca6]'>(BTC)</span>
-								</label>
-								<input
-									type='number'
-									id='out_bid_margin'
-									className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
-									placeholder=''
-									inputMode='numeric'
-									value={formState.outBidMargin}
-									onChange={(e) => handleNumberInputChange(e, "outBidMargin")}
-									required
-								/>
-							</div>
-							<div>
-								<label
-									htmlFor='bid_count'
-									className='block mb-2 text-sm font-medium text-white'>
-									BID COUNT
-								</label>
-								<input
-									type='number'
-									id='bid_count'
-									className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
-									placeholder=''
-									inputMode='numeric'
-									value={formState.bidCount}
-									onChange={(e) => handleNumberInputChange(e, "bidCount")}
-									required
-								/>
-							</div>
-							<div>
-								<label
-									htmlFor='duration'
-									className='block mb-2 text-sm font-medium text-white'>
-									DURATION <span className='text-[#998ca6]'>(minutes)</span>
-								</label>
-								<input
-									type='number'
-									id='duration'
-									className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
-									placeholder=''
-									inputMode='numeric'
-									value={formState.duration}
-									onChange={(e) => handleNumberInputChange(e, "duration")}
-									required
-								/>
-							</div>
-						</div>
 
-						<div className='flex justify-end mt-6'>
-							<button
-								className={`py-[14px] w-[180px] font-semibold text-sm rounded 
+							<div className='mt-6 flex items-center space-x-4'>
+								<div>
+									<label
+										htmlFor='scheduled_loop'
+										className='block mb-2 text-sm font-medium text-white'>
+										SCHEDULED LOOP{" "}
+										<span className='text-[#998ca6]'>(seconds)</span>
+									</label>
+									<input
+										type='number'
+										id='scheduled_loop'
+										className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+										placeholder=''
+										inputMode='numeric'
+										value={formState.scheduledLoop}
+										onChange={(e) =>
+											handleNumberInputChange(e, "scheduledLoop")
+										}
+									/>
+								</div>
+								<div className='h-[82px]'>
+									<label
+										htmlFor='enableCounterbidding'
+										className='block mb-2 text-sm font-medium text-white uppercase'>
+										Enable Counterbidding
+									</label>
+									<label
+										className='inline-flex relative items-center cursor-pointer mt-4'
+										id='enableCounterbidding'>
+										<input
+											id='enableCounterbidding'
+											type='checkbox'
+											className='sr-only peer'
+											checked={formState.enableCounterbidding}
+											onChange={() =>
+												handleToggleChange("enableCounterbidding")
+											}
+										/>
+										<div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#CB3CFF]"></div>
+									</label>
+								</div>
+							</div>
+							<div className='mt-6 flex space-x-4'>
+								<div>
+									<label
+										htmlFor='out_bid_margin'
+										className='block mb-2 text-sm font-medium text-white'>
+										OUT BID MARGIN <span className='text-[#998ca6]'>(BTC)</span>
+									</label>
+									<input
+										type='number'
+										id='out_bid_margin'
+										className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+										placeholder=''
+										inputMode='numeric'
+										value={formState.outBidMargin}
+										onChange={(e) => handleNumberInputChange(e, "outBidMargin")}
+										required
+									/>
+								</div>
+								<div>
+									<label
+										htmlFor='bid_count'
+										className='block mb-2 text-sm font-medium text-white'>
+										BID COUNT
+									</label>
+									<input
+										type='number'
+										id='bid_count'
+										className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+										placeholder=''
+										inputMode='numeric'
+										value={formState.bidCount}
+										onChange={(e) => handleNumberInputChange(e, "bidCount")}
+										required
+									/>
+								</div>
+								<div>
+									<label
+										htmlFor='duration'
+										className='block mb-2 text-sm font-medium text-white'>
+										DURATION <span className='text-[#998ca6]'>(minutes)</span>
+									</label>
+									<input
+										type='number'
+										id='duration'
+										className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
+										placeholder=''
+										inputMode='numeric'
+										value={formState.duration}
+										onChange={(e) => handleNumberInputChange(e, "duration")}
+										required
+									/>
+								</div>
+							</div>
+
+							<div className='flex justify-end mt-6'>
+								<button
+									className={`py-[14px] w-[180px] font-semibold text-sm rounded 
     ${
 			!collectionDetails.symbol ||
 			!collectionDetails.floorPrice ||
@@ -646,14 +681,15 @@ export default function Home() {
 				: "bg-[#CB3CFF] w-[140px] text-white font-medium text-xs py-2 px-4 rounded"
 		}
   `}
-								onClick={handleAddCollection}
-								disabled={
-									!collectionDetails.symbol ||
-									!collectionDetails.floorPrice ||
-									(!isOrdinalAddress && !defaultTokenReceiveAddress)
-								}>
-								{editIndex !== null ? "SAVE" : "ADD"}
-							</button>
+									onClick={handleAddCollection}
+									disabled={
+										!collectionDetails.symbol ||
+										!collectionDetails.floorPrice ||
+										(!isOrdinalAddress && !defaultTokenReceiveAddress)
+									}>
+									{editIndex !== null ? "SAVE" : "ADD"}
+								</button>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -727,7 +763,7 @@ export default function Home() {
 								<th scope='col' className='px-6 py-5 text-center'>
 									Duration
 								</th>
-								<th scope='col' className='px-6 py-5 text-center'>
+								<th scope='col' className='py-5 text-center'>
 									Status
 								</th>
 								<th scope='col' className='px-6 py-5 text-center'>
@@ -798,7 +834,7 @@ export default function Home() {
 											{bidState.running ? (
 												<div className='bg-green-500 w-4 h-4 rounded-full text-center ring ring-green-400 ring-opacity-50'></div>
 											) : (
-												<div className='bg-[#AEB9E1] w-4 h-4 rounded-full text-center'></div>
+												<div className='bg-[#AEB9E1] w-4 h-4 rounded-full'></div>
 											)}
 										</td>
 										<td className='flex items-center px-6 py-5'>
@@ -849,10 +885,11 @@ export interface CollectionData {
 	outBidMargin: number;
 	bidCount: number;
 	duration: number;
+	quantity: number;
+	enableCounterbidding: boolean;
 	offerType: "ITEM" | "COLLECTION";
 	fundingWalletWIF?: string;
 	tokenReceiveAddress?: string;
 	scheduledLoop?: number;
-	counterbidLoop?: number;
 	floorPrice?: number;
 }

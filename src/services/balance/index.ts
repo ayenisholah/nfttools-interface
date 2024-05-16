@@ -1,14 +1,15 @@
-import axios from "axios";
+import axios, { AxiosInstance } from "axios";
+import Bottleneck from "bottleneck";
 
-export async function getBitcoinBalance(address: string): Promise<number> {
+export async function getBitcoinBalance(address: string, apiKey: string, limiter: Bottleneck, axiosInstance: AxiosInstance): Promise<number> {
   try {
-    const response = await axios
+    const response = await limiter.schedule(() => axiosInstance
       .get('https://nfttools.pro', {
         headers: {
           'url': `https://blockchain.info/q/addressbalance/${address}`,
-          'x-nft-api-key': 'a4eae399-f135-4627-829a-18435bb631ae'
+          'x-nft-api-key': apiKey
         }
-      })
+      }))
 
     const balance = response.data;
     console.log('--------------------------------------------------------------------------------');

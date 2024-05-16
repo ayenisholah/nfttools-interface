@@ -1,6 +1,4 @@
 import ChevronDownIcon from "@/assets/icons/ChevronDownIcon";
-import InvisibleIcon from "@/assets/icons/InvisibleIcon";
-import VisibleIcon from "@/assets/icons/VisibleIcon";
 import Toast from "@/components/Toast";
 import { useAccountState } from "@/store/account.store";
 import { useSettingsState } from "@/store/settings.store";
@@ -20,7 +18,6 @@ const Settings: React.FC = () => {
 		bidExpiration,
 		defaultOutbidMargin,
 		defaultLoopTime,
-		defaultCounterLoopTime,
 		updateSettings,
 	} = useSettingsState();
 
@@ -32,7 +29,6 @@ const Settings: React.FC = () => {
 		bidExpiration: bidExpiration,
 		defaultOutbidMargin: defaultOutbidMargin,
 		defaultLoopTime: defaultLoopTime,
-		defaultCounterLoopTime: defaultCounterLoopTime,
 	});
 
 	useEffect(() => {
@@ -44,12 +40,10 @@ const Settings: React.FC = () => {
 			bidExpiration: bidExpiration,
 			defaultOutbidMargin: defaultOutbidMargin,
 			defaultLoopTime: defaultLoopTime,
-			defaultCounterLoopTime: defaultCounterLoopTime,
 		});
 	}, [
 		apiKey,
 		bidExpiration,
-		defaultCounterLoopTime,
 		defaultLoopTime,
 		defaultOutbidMargin,
 		fundingWif,
@@ -235,25 +229,6 @@ const Settings: React.FC = () => {
 							required
 						/>
 					</div>
-					<div>
-						<label
-							htmlFor='default_counter_loop_time'
-							className='block mb-2 text-sm font-medium text-white'>
-							DEFAULT COUNTER LOOP TIME (seconds)
-						</label>
-						<input
-							type='number'
-							id='default_counter_loop_time'
-							className='p-[14px] bg-transparent border border-[#343B4F] rounded text-white inline-block w-auto'
-							placeholder=''
-							inputMode='numeric'
-							value={formState.defaultCounterLoopTime}
-							onChange={(e) =>
-								handleNumberInputChange(e, "defaultCounterLoopTime")
-							}
-							required
-						/>
-					</div>
 				</div>
 
 				{/* others */}
@@ -335,5 +310,4 @@ interface SettingsState {
 	bidExpiration: number;
 	defaultOutbidMargin: number;
 	defaultLoopTime: number;
-	defaultCounterLoopTime: number;
 }

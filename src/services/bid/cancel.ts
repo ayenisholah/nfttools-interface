@@ -1,15 +1,15 @@
+import Bottleneck from "bottleneck";
 import { retrieveCancelOfferFormat, signData, submitCancelOfferData } from "../offers";
+import { AxiosInstance } from "axios";
 
-export async function cancelBid(offer: IOffer, privateKey: string, collectionSymbol: string, tokenId: string, buyerPaymentAddress: string, apiKey: string) {
+export async function cancelBid(offer: IOffer, privateKey: string, collectionSymbol: string, tokenId: string, buyerPaymentAddress: string, apiKey: string, limiter: Bottleneck, axiosInstance: AxiosInstance) {
   try {
-    const offerFormat = await retrieveCancelOfferFormat(offer.id, apiKey)
+    const offerFormat = await retrieveCancelOfferFormat(offer.id, apiKey, limiter, axiosInstance)
     if (offerFormat) {
       const signedOfferFormat = signData(offerFormat, privateKey)
       if (signedOfferFormat) {
-        await submitCancelOfferData(offer.id, signedOfferFormat, apiKey)
-        console.log('--------------------------------------------------------------------------------');
+        await submitCancelOfferData(offer.id, signedOfferFormat, apiKey, limiter, axiosInstance)
         console.log(`CANCELLED OFFER FOR ${collectionSymbol} ${tokenId}`);
-        console.log('--------------------------------------------------------------------------------');
       }
     }
   } catch (error) {

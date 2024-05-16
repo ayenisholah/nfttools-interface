@@ -1,3 +1,4 @@
+import { CollectionData } from "@/pages";
 import React, { useState } from "react";
 import { Range } from "react-range";
 
@@ -5,22 +6,6 @@ interface Props {
 	setFormState: React.Dispatch<React.SetStateAction<CollectionData>>;
 	formState: CollectionData;
 	floorPrice: number;
-}
-
-export interface CollectionData {
-	collectionSymbol: string;
-	minBid: number;
-	maxBid: number;
-	minFloorBid: number;
-	maxFloorBid: number;
-	outBidMargin: number;
-	bidCount: number;
-	duration: number;
-	offerType: "ITEM" | "COLLECTION";
-	fundingWalletWIF?: string;
-	tokenReceiveAddress?: string;
-	scheduledLoop?: number;
-	counterbidLoop?: number;
 }
 
 const DualRangeSlider: React.FC<Props> = ({

@@ -7,7 +7,6 @@ export interface BidState extends CollectionData {
   fundingWalletWIF: string;
   tokenReceiveAddress: string;
   scheduledLoop: number;
-  counterbidLoop: number;
   running: boolean;
 }
 

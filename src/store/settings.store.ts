@@ -9,7 +9,6 @@ interface SettingsState {
   bidExpiration: number;
   defaultOutbidMargin: number;
   defaultLoopTime: number;
-  defaultCounterLoopTime: number;
   updateSettings: (settings: Partial<SettingsState>) => void;
 }
 
@@ -27,7 +26,6 @@ export const useSettingsState = create<SettingsState>()(
       bidExpiration: 10,
       defaultOutbidMargin: 0.00000001,
       defaultLoopTime: 600,
-      defaultCounterLoopTime: 600,
       updateSettings: (settings) => set((state) => ({ ...state, ...settings })),
     }),
     persistOptions

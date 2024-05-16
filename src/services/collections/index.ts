@@ -1,7 +1,8 @@
-import axios from "axios";
+import axios, { AxiosInstance } from "axios";
+import Bottleneck from "bottleneck";
 
 
-export async function collectionDetails(collectionSymbol: string, apiKey: string) {
+export async function collectionDetails(collectionSymbol: string, apiKey: string, limiter: Bottleneck, axiosInstance: AxiosInstance) {
 
   const headers = {
     'Content-Type': 'application/json',
@@ -10,7 +11,7 @@ export async function collectionDetails(collectionSymbol: string, apiKey: string
 
   try {
     const url = `https://nfttools.pro/magiceden/v2/ord/btc/stat?collectionSymbol=${collectionSymbol}`
-    const { data } = await axios.get<CollectionData>(url, { headers })
+    const { data } = await limiter.schedule(() => axiosInstance.get<CollectionData>(url, { headers }))
 
     return data
 

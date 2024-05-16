@@ -1,6 +1,7 @@
-import axios from "axios";
+import axios, { AxiosInstance } from "axios";
+import Bottleneck from "bottleneck";
 
-export async function retrieveTokens(collectionSymbol: string, bidCount: number = 20, apiKey: string) {
+export async function retrieveTokens(collectionSymbol: string, bidCount: number = 20, apiKey: string, limiter: Bottleneck, axiosInstance: AxiosInstance) {
   const headers = {
     'X-NFT-API-Key': apiKey,
   }
@@ -17,7 +18,7 @@ export async function retrieveTokens(collectionSymbol: string, bidCount: number 
       disablePendingTransactions: true
     };
 
-    const { data } = await axios.get<IToken>(url, { params, headers })
+    const { data } = await limiter.schedule(() => axiosInstance.get<IToken>(url, { params, headers }))
 
     const tokens = data.tokens
 

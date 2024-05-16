@@ -38,7 +38,7 @@ const CollectionBid = () => {
 
 	const rowData = data ? JSON.parse(data as string) : null;
 
-	const { apiKey } = useSettingsState();
+	const { apiKey, rateLimit } = useSettingsState();
 	const { cancelAll, cancel } = useOfferStateStore();
 
 	const { bidStates, startBid, stopBid } = useBidStateStore();
@@ -66,7 +66,9 @@ const CollectionBid = () => {
 			try {
 				const tokenReceiveAddress = rowData.tokenReceiveAddress;
 				const offerType = rowData.offerType;
-				const url = `/api/offers?requestType=getCollectionOffers&tokenReceiveAddress=${tokenReceiveAddress}&collectionSymbol=${collectionSymbol}&apiKey=${apiKey}&offerType=${offerType}`;
+				const url = `/api/offers?requestType=getCollectionOffers&tokenReceiveAddress=${tokenReceiveAddress}&collectionSymbol=${collectionSymbol}&apiKey=${apiKey}&
+				rateLimit=${rateLimit}&
+				offerType=${offerType}`;
 				const response = await fetch(url.toString(), {
 					method: "GET",
 					headers: {
@@ -94,7 +96,11 @@ const CollectionBid = () => {
 		async function fetchOffers() {
 			try {
 				const tokenReceiveAddress = rowData.tokenReceiveAddress;
-				const url = `/api/offers?requestType=getCollectionOffers&tokenReceiveAddress=${tokenReceiveAddress}&collectionSymbol=${collectionSymbol}&apiKey=${apiKey}`;
+				const offerType = rowData.offerType;
+
+				const url = `/api/offers?requestType=getCollectionOffers&tokenReceiveAddress=${tokenReceiveAddress}&collectionSymbol=${collectionSymbol}&apiKey=${apiKey}&
+				rateLimit=${rateLimit}&
+				offerType=${offerType}`;
 				const response = await fetch(url.toString(), {
 					method: "GET",
 					headers: {
@@ -227,6 +233,7 @@ const CollectionBid = () => {
 								selectedCollections,
 								rowData.fundingWalletWIF,
 								apiKey,
+								rateLimit,
 								collectionSymbol as string,
 								rowData.tokenReceiveAddress,
 								rowData.offerType
@@ -343,6 +350,7 @@ const CollectionBid = () => {
 														offer,
 														rowData.fundingWalletWIF,
 														apiKey,
+														rateLimit,
 														collectionSymbol as string,
 														rowData.tokenReceiveAddress,
 														rowData.offerType

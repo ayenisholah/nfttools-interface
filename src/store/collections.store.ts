@@ -11,15 +11,17 @@ export interface CollectionData {
   minBid: number;
   maxBid: number;
   minFloorBid: number;
+  quantity: number;
   maxFloorBid: number;
   outBidMargin: number;
   bidCount: number;
   duration: number;
-  offerType: 'ITEM' | 'COLLECTION';
+  enableCounterbidding: boolean;
+  offerType: "ITEM" | "COLLECTION";
   fundingWalletWIF?: string;
   tokenReceiveAddress?: string;
   scheduledLoop?: number;
-  counterbidLoop?: number;
+  floorPrice?: number;
 }
 
 
@@ -50,13 +52,12 @@ export const useCollectionsState = create<CollectionsState>()(
           collections: [...state.collections, collection],
         }));
 
-        const { defaultLoopTime, defaultCounterLoopTime, fundingWif, tokenReceiveAddress } = useSettingsState.getState();
+        const { defaultLoopTime, fundingWif, tokenReceiveAddress } = useSettingsState.getState();
         const newBidState: BidState = {
           ...collection,
           fundingWalletWIF: collection.fundingWalletWIF || fundingWif,
           tokenReceiveAddress: collection.tokenReceiveAddress || tokenReceiveAddress,
           scheduledLoop: collection.scheduledLoop || defaultLoopTime,
-          counterbidLoop: collection.counterbidLoop || defaultCounterLoopTime,
           running: false,
         };
         useBidStateStore.getState().setBidStates([...useBidStateStore.getState().bidStates, newBidState]);
@@ -76,7 +77,7 @@ export const useCollectionsState = create<CollectionsState>()(
 
         const collectionSymbol = collection?.collectionSymbol as string
 
-        const { fundingWif, tokenReceiveAddress, apiKey } = useSettingsState.getState();
+        const { fundingWif, tokenReceiveAddress, apiKey, rateLimit } = useSettingsState.getState();
 
         const { cancelAll } = useOfferStateStore.getState()
 
@@ -88,7 +89,7 @@ export const useCollectionsState = create<CollectionsState>()(
           const offerType = collection.offerType
 
           try {
-            const url = `/api/offers?requestType=getCollectionOffers&tokenReceiveAddress=${receiveAddress}&collectionSymbol=${collectionSymbol}&apiKey=${apiKey}`;
+            const url = `/api/offers?requestType=getCollectionOffers&tokenReceiveAddress=${receiveAddress}&collectionSymbol=${collectionSymbol}&apiKey=${apiKey}&rateLimit=${rateLimit}`;
             const response = await fetch(url.toString(), {
               method: "GET",
               headers: {
@@ -104,7 +105,7 @@ export const useCollectionsState = create<CollectionsState>()(
               .filter((item) => item.token.collectionSymbol === collectionSymbol)
             const offerIds = offers.map((item) => item.id)
 
-            await cancelAll(offerIds, wif, apiKey, collectionSymbol, receiveAddress, offerType)
+            await cancelAll(offerIds, wif, apiKey, rateLimit, collectionSymbol, receiveAddress, offerType)
             toast.success("successfully removed collection and delete all offers")
 
           } catch (error) {
@@ -112,9 +113,6 @@ export const useCollectionsState = create<CollectionsState>()(
           }
 
         }
-
-
-
       },
       editCollection: (index, updatedCollection) =>
         set((state) => ({
