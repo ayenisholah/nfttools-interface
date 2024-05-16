@@ -326,7 +326,7 @@ export async function submitSignedOfferOrder(
         errorOccurred = true;  // Signal to retry
       } else {
         errorOccurred = false;
-        throw error;  // Rethrow other types of errors that are not handled specifically
+        // throw error;  // Rethrow other types of errors that are not handled specifically
       }
     }
   } while (errorOccurred);
@@ -346,13 +346,10 @@ export async function getBestOffer(tokenId: string, apiKey: string, limiter: Bot
     'Content-Type': 'application/json',
     'X-NFT-API-Key': apiKey,
   }
-
   try {
-
     const { data } = await limiter.schedule(() => axiosInstance.get<OfferData>(url, { params, headers }))
     return data
   } catch (error: any) {
-    console.log('getBestOffer: ', error.response);
   }
 }
 

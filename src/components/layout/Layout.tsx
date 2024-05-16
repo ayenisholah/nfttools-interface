@@ -38,6 +38,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 				duration: collection.duration || bidExpiration,
 				scheduledLoop: collection.scheduledLoop || defaultLoopTime,
 				running: bidState?.running || false,
+				enableCounterBidding: collection.enableCounterbidding || false,
 			};
 		});
 	}, [

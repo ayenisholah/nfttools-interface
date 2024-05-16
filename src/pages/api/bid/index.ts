@@ -25,6 +25,8 @@ export const axiosInstance: AxiosInstance = axios.create({
   timeout: 300000,
 });
 
+let data: CollectionData[];
+
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -70,8 +72,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 
       const eventManager = new EventManager(collections, apiKey, rateLimit, limiter, axiosInstance)
-      connectWebSocket(collections, eventManager)
-      startProcessing(collections, eventManager);
+
+      if (collections.length > 0) {
+        connectWebSocket(collections, eventManager)
+        startProcessing(collections, eventManager);
+      }
 
       res.status(200).json({ status: "running" })
     }
@@ -83,7 +88,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 let ws: WebSocket;
 let heartbeatIntervalId: NodeJS.Timeout | null = null;
-let reconnectTimeoutId: number | null = null;
+let reconnectTimeoutId: any
 let retryCount: number = 0;
 
 async function startProcessing(collections: CollectionData[], eventManager: EventManager) {
@@ -102,15 +107,14 @@ async function startProcessing(collections: CollectionData[], eventManager: Even
   })
 }
 
+
 function connectWebSocket(collections: CollectionData[], eventManager: EventManager): void {
-  const baseEndpoint: string = 'wss://wss-mainnet.magiceden.io/CJMw7IPrGPUb13adEQYW2ASbR%2FIWToagGUCr02hWp1oWyLAtf5CS0XF69WNXj0MbO6LEQLrFQMQoEqlX7%2Fny2BP08wjFc9MxzEmM5v2c5huTa3R1DPqGSbuO2TXKEEneIc4FMEm5ZJruhU8y4cyfIDzGqhWDhxK3iRnXtYzI0FGG1%2BMKyx9WWOpp3lLA3Gm2BgNpHHp3wFEas5TqVdJn0GtBrptg8ZEveG8c44CGqfWtEsS0iI8LZDR7tbrZ9fZpbrngDaimEYEH6MgvhWPTlKrsGw%3D%3D'
+  const baseEndpoint: string = 'wss://wss-mainnet.magiceden.io/CJMw7IPrGPUb13adEQYW2ASbR%2FIWToagGUCr02hWp1oWyLAtf5CS0XF69WNXj0MbO6LEQLrFQMQoEqlX7%2Fny2BP08wjFc9MxzEmM5v2c5huTa3R1DPqGSbuO2TXKEEneIc4FMEm5ZJruhU8y4cyfIDzGqhWDhxK3iRnXtYzI0FGG1%2BMKyx9WWOpp3lLA3Gm2BgNpHHp3wFEas5TqVdJn0GtBrptg8ZEveG8c44CGqfWtEsS0iI8LZDR7tbrZ9fZpbrngDaimEYEH6MgvhWPTlKrsGw%3D%3D';
 
   ws = new WebSocket(baseEndpoint);
 
-
   ws.addEventListener("open", function open() {
-    console.log("Connected to Magic Eden Websocket", collections);
-
+    console.log("Connected to Magic Eden Websocket");
     retryCount = 0;
     if (reconnectTimeoutId !== null) {
       clearTimeout(reconnectTimeoutId);
@@ -133,13 +137,15 @@ function connectWebSocket(collections: CollectionData[], eventManager: EventMana
     }, 10000);
 
     if (collections && collections.length > 0) {
-      subscribeToCollections(collections)
+      subscribeToCollections(collections);
     }
+
+
 
     ws.on("message", function incoming(data: string) {
       if (isValidJSON(data.toString())) {
         const message: CollectOfferActivity = JSON.parse(data);
-        eventManager.receiveWebSocketEvent(message)
+        eventManager.receiveWebSocketEvent(message);
       }
     });
   });
@@ -150,7 +156,7 @@ function connectWebSocket(collections: CollectionData[], eventManager: EventMana
       clearInterval(heartbeatIntervalId);
       heartbeatIntervalId = null;
     }
-    attemptReconnect();
+    attemptReconnect(collections, eventManager);
   });
 
   ws.addEventListener("error", function error(err: any) {
@@ -159,18 +165,22 @@ function connectWebSocket(collections: CollectionData[], eventManager: EventMana
       ws.close();
     }
   });
+
+
 }
+
+
 
 const MAX_RETRIES: number = 5;
 
-function attemptReconnect(): void {
+function attemptReconnect(collections: CollectionData[], eventManager: EventManager): void {
   if (retryCount < MAX_RETRIES) {
     if (reconnectTimeoutId !== null) {
       clearTimeout(reconnectTimeoutId);
     }
     let delay: number = Math.pow(2, retryCount) * 1000;
     console.log(`Attempting to reconnect in ${delay / 1000} seconds...`);
-    reconnectTimeoutId = setTimeout(connectWebSocket, delay)
+    reconnectTimeoutId = setTimeout(() => { connectWebSocket(collections, eventManager) }, delay);
     retryCount++;
   } else {
     console.log("Max retries reached. Giving up on reconnecting.");
@@ -205,13 +215,9 @@ class EventManager {
   isProcessingQueue: boolean;
   collections: CollectionData[];
   apiKey: string
-  processingItems: any
   processingTokens: Record<string, boolean> = {};
   limiter: Bottleneck;
   axiosInstance: AxiosInstance;
-
-
-
 
   constructor(collections: CollectionData[], apiKey: string, rateLimit: number,
     limiter: Bottleneck,
@@ -223,8 +229,7 @@ class EventManager {
     this.apiKey = apiKey
     this.rateLimit = rateLimit
     this.queue = [];
-    this.processingItems = new Set()
-    this.processingItems = {}
+    this.processingTokens = {}
     this.isScheduledRunning = false;
     this.isProcessingQueue = false;
   }
@@ -317,7 +322,6 @@ class EventManager {
             if (incomingBuyerTokenReceiveAddress.toLowerCase() != buyerTokenReceiveAddress.toLowerCase()) {
               console.log(`COUNTERBID FOR ${collectionSymbol} ${tokenId}`);
               const bidPrice = +(incomingBidAmount) + outBidAmount
-              this.processingItems.add(incomingItemKey);
 
               try {
                 const userBids = Object.entries(bidHistory).flatMap(([collectionSymbol, bidData]) => {
@@ -342,7 +346,6 @@ class EventManager {
                 })
 
                 if (bidPrice <= maxOffer) {
-
 
                   let status;
                   // Wait if token is already being processed
@@ -371,7 +374,8 @@ class EventManager {
               } catch (error) {
                 console.log(error);
               } finally {
-                this.processingItems.delete(incomingItemKey);
+                this.processingTokens[tokenId] = false;
+
               }
             }
           }
@@ -381,10 +385,16 @@ class EventManager {
           if (incomingBuyerTokenReceiveAddress.toLowerCase() != buyerTokenReceiveAddress.toLowerCase()) {
             console.log(`INCOMING COLLECTION OFFER ${collectionSymbol}: `, message);
             console.log(`COUNTERBID FOR ${collectionSymbol} COLLECTION OFFER`);
-            const incomingItemKey = `${collectionSymbol}:${new Date(createdAt).getTime()}`
+
+
+            while (this.processingTokens[collectionSymbol]) {
+              console.log(`Processing existing collection offer: ${collectionSymbol}`.toUpperCase());
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            this.processingTokens[collectionSymbol] = true
 
             const bidPrice = +(incomingBidAmount) + outBidAmount
-            this.processingItems.add(incomingItemKey);
 
             const offerData = await getBestCollectionOffer(collectionSymbol, this.apiKey, this.limiter, this.axiosInstance)
             const ourOffer = offerData?.offers.find((item) => item.btcParams.makerOrdinalReceiveAddress.toLowerCase() === buyerTokenReceiveAddress.toLowerCase())
@@ -395,12 +405,20 @@ class EventManager {
             }
             const feeSatsPerVbyte = 28
 
-            if (bidPrice < maxOffer || bidPrice < floorPrice) {
-              await placeCollectionBid(bidPrice, expiration, collectionSymbol, buyerTokenReceiveAddress, publicKey, privateKey, feeSatsPerVbyte, this.apiKey, this.limiter, this.axiosInstance)
-              bidHistory[collectionSymbol].highestCollectionOffer = {
-                price: bidPrice,
-                buyerPaymentAddress: buyerPaymentAddress
+            try {
+              if (bidPrice < maxOffer || bidPrice < floorPrice) {
+                await placeCollectionBid(bidPrice, expiration, collectionSymbol, buyerTokenReceiveAddress, publicKey, privateKey, feeSatsPerVbyte, this.apiKey, this.limiter, this.axiosInstance)
+                bidHistory[collectionSymbol].highestCollectionOffer = {
+                  price: bidPrice,
+                  buyerPaymentAddress: buyerPaymentAddress
+                }
               }
+
+            } catch (error) {
+
+            } finally {
+              delete this.processingTokens[collectionSymbol]
+
             }
           }
         }
