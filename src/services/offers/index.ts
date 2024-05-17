@@ -124,7 +124,6 @@ export async function getBestCollectionOffer(collectionSymbol: string, apiKey: s
     const { data } = await limiter.schedule(() => axiosInstance.get<CollectionOfferData>(url, { params, headers }))
     return data
   } catch (error: any) {
-    console.log('getBestCollectionOffer: ', error.response.data);
   }
 }
 
@@ -444,7 +443,6 @@ export async function getOffers(tokenId: string,
     const { data } = await limiter.schedule(() => axiosInstance.get<OfferData>(url, { params, headers }))
     return data
   } catch (error: any) {
-    console.log("getOffers ", error.response.data);
   }
 }
 
@@ -500,7 +498,6 @@ export async function getUserOffers(buyerPaymentAddress: string, apiKey: string,
     const { data } = await limiter.schedule(() => axiosInstance.get<UserOffer>(url, { params, headers }))
     return data
   } catch (error) {
-    console.log('getUserOffers: ', error);
   }
 }
 
